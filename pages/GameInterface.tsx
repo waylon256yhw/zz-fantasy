@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { TypewriterText } from '../components/RPGComponents';
 import { Character, LogEntry, Item } from '../types';
-import { STARTING_LOGS, CLASS_LABELS, IMAGES, getAvailableQuests, getActiveQuests, getCompletedQuests, ALL_ITEMS, LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, MAP_GRAPH } from '../constants';
+import { STARTING_LOGS, CLASS_LABELS, IMAGES, getAvailableQuests, getActiveQuests, getCompletedQuests, ALL_ITEMS, LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, MAP_GRAPH, MAP_SHORT_NAMES } from '../constants';
 import { useGame, ShopState } from '../src/contexts/GameContext';
 import { DZMMService } from '../src/services/dzmmService';
 import { buildSystemPrompt, buildOpeningGreeting } from '../src/utils/promptBuilder';
@@ -50,6 +50,7 @@ const GameInterface: React.FC = () => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [rerollingIndex, setRerollingIndex] = useState<number | null>(null);
+  const [pendingLocation, setPendingLocation] = useState<string | null>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,7 +84,6 @@ const GameInterface: React.FC = () => {
       text: action,
       type: 'dialogue'
     };
-    setLogs(prev => [...prev, playerLog]);
 
     // Prepare AI message placeholder (use dialogue type, empty speaker for third-person narration)
     const aiLogId = `ai_${Date.now()}`;
@@ -93,11 +93,14 @@ const GameInterface: React.FC = () => {
       text: '',
       type: 'dialogue'
     };
-    setLogs(prev => [...prev, aiLog]);
+
+    // Update logs state with both messages at once
+    const updatedLogs = [...logs, playerLog, aiLog];
+    setLogs(updatedLogs);
 
     try {
-      // Build messages array for DZMM API (last 15 entries)
-      const recentLogs = logs.slice(-15);
+      // Build messages array for DZMM API (last 15 entries, excluding the AI placeholder)
+      const recentLogs = updatedLogs.filter(log => log.id !== aiLogId).slice(-15);
       const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
       // Add system prompt as first user message (with active quest info)
@@ -259,6 +262,16 @@ const GameInterface: React.FC = () => {
             }
 
             setIsGenerating(false);
+
+            // Apply pending location change (if user actually sent the travel message)
+            if (pendingLocation) {
+              // Check if the user's last message contains the location name
+              const lastUserMessage = logs.filter(log => log.speaker === character?.name).pop();
+              if (lastUserMessage && lastUserMessage.text.includes(pendingLocation)) {
+                setLocation(pendingLocation);
+              }
+              setPendingLocation(null);
+            }
 
             // Auto-scroll to bottom
             setTimeout(() => {
@@ -711,7 +724,7 @@ const GameInterface: React.FC = () => {
                {activeSheet === 'HONOR' && <HonorWall shopState={shopState} onClaim={claimOverlordProof} />}
                {activeSheet === 'MAP' && <MapSheet location={location} onSelect={(loc) => {
                  setActiveSheet(null);
-                 setLocation(loc);
+                 setPendingLocation(loc);
                  setInput(`我前往了${loc}`);
                }} />}
             </motion.div>
@@ -1349,33 +1362,342 @@ const HonorWall = ({ shopState, onClaim }: { shopState: ShopState; onClaim: () =
 };
 
 const MapSheet = ({ location, onSelect }: { location: string; onSelect: (loc: string) => void }) => {
-  const locations = MAP_GRAPH.nodes.map(n => n.name);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+
+  // Find current node by location name
+  const currentNode = MAP_GRAPH.nodes.find(n => n.name === location);
+
+  // Calculate reachable node IDs from current location
+  const reachableIds = currentNode
+    ? MAP_GRAPH.edges
+        .filter(edge => edge.includes(currentNode.id))
+        .flat()
+        .filter(id => id !== currentNode.id)
+    : [];
+
+  // Calculate node SVG position based on row/col
+  const getNodePosition = (row: number, col: number) => ({
+    x: 100 + (col - 1) * 300,
+    y: 100 + (row - 1) * 200,
+  });
+
+  // Get node visual state
+  const getNodeState = (nodeId: string) => {
+    if (currentNode?.id === nodeId) return 'current';
+    if (reachableIds.includes(nodeId)) return 'reachable';
+    return 'unreachable';
+  };
+
+  // Get edge visual state
+  const getEdgeState = (edge: string[]) => {
+    if (!currentNode) return 'normal';
+    if (edge.includes(currentNode.id)) return 'highlighted';
+    return 'normal';
+  };
 
   return (
     <div className="h-full flex flex-col bg-[#FFFBF0]">
-      <div className="p-8 pb-4 border-b border-[#E6D7C3] flex items-center gap-4">
+      {/* Header */}
+      <div className="p-6 md:p-8 pb-4 border-b border-[#E6D7C3] flex items-center gap-4">
         <div className="bg-[#89CFF0] text-white p-2.5 rounded-xl shadow-md">
-          <Map size={24} />
+          <MapPin size={24} />
         </div>
         <div>
-          <h2 className="text-2xl font-serif font-black text-[#5D4037]">前往何处</h2>
-          <p className="text-[#8B7355] font-bold text-xs">选择目的地</p>
+          <h2 className="text-xl md:text-2xl font-serif font-black text-[#5D4037]">前往何处</h2>
+          <p className="text-[#8B7355] font-bold text-xs">点击相邻地点即可前往</p>
         </div>
       </div>
 
-      <div className="flex-1 p-6 md:p-10 space-y-3 overflow-y-auto custom-scrollbar">
-        {locations.map(loc => (
-          <button
-            key={loc}
-            onClick={() => onSelect(loc)}
-            className={`w-full text-left bg-white rounded-2xl border-2 ${
-              loc === location ? 'border-[#FFD166] shadow-md' : 'border-[#F0EAE0]'
-            } p-4 flex items-center justify-between hover:border-[#FF9FAA] transition-colors`}
-          >
-            <div className="font-bold text-[#5D4037] truncate">{loc}</div>
-            {loc === location && <span className="text-[11px] text-[#C27B28] font-bold">当前位置</span>}
-          </button>
-        ))}
+      {/* SVG Node Graph */}
+      <div className="flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden">
+        <div className="w-full h-full max-w-4xl flex items-center justify-center relative">
+          {/* Parchment background with radial gradient */}
+          <div className="absolute inset-0 rounded-3xl overflow-hidden">
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'radial-gradient(circle at center, #FFF9E6 0%, #F5E6D3 50%, #E8D4B8 100%)',
+                opacity: 0.8
+              }}
+            />
+            {/* Subtle grid pattern overlay */}
+            <svg className="absolute inset-0 w-full h-full opacity-10">
+              <defs>
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#8B7355" strokeWidth="0.5" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+          </div>
+
+          <svg viewBox="0 0 800 600" className="w-full h-full relative z-10" style={{ maxHeight: 'calc(80vh - 140px)' }}>
+            {/* Define gradients and filters */}
+            <defs>
+              {/* Current node: Golden gem gradient */}
+              <radialGradient id="currentNodeGradient" cx="30%" cy="30%">
+                <stop offset="0%" stopColor="#FFF4D6" />
+                <stop offset="40%" stopColor="#FFD166" />
+                <stop offset="100%" stopColor="#C27B28" />
+              </radialGradient>
+
+              {/* Current node glow (stronger) */}
+              <radialGradient id="currentGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#FFD166" stopOpacity="0.5" />
+                <stop offset="60%" stopColor="#FFD166" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="#FFD166" stopOpacity="0" />
+              </radialGradient>
+
+              {/* Reachable node: Bronze/silver gradient */}
+              <radialGradient id="reachableNodeGradient" cx="30%" cy="30%">
+                <stop offset="0%" stopColor="#E8F4F8" />
+                <stop offset="40%" stopColor="#A8D5E2" />
+                <stop offset="100%" stopColor="#6FA8B8" />
+              </radialGradient>
+
+              {/* Reachable node hover: Enhanced glow */}
+              <radialGradient id="reachableHoverGradient" cx="30%" cy="30%">
+                <stop offset="0%" stopColor="#FFFFFF" />
+                <stop offset="40%" stopColor="#C4E8F5" />
+                <stop offset="100%" stopColor="#89CFF0" />
+              </radialGradient>
+
+              {/* Unreachable node: Stone gray */}
+              <radialGradient id="unreachableNodeGradient" cx="30%" cy="30%">
+                <stop offset="0%" stopColor="#E0E0E0" />
+                <stop offset="40%" stopColor="#B8B8B8" />
+                <stop offset="100%" stopColor="#8A8A8A" />
+              </radialGradient>
+
+              {/* Drop shadow for depth */}
+              <filter id="nodeShadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                <feOffset dx="0" dy="2" result="offsetblur" />
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="0.3" />
+                </feComponentTransfer>
+                <feMerge>
+                  <feMergeNode />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+
+              {/* Outer glow for emphasis */}
+              <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+
+              {/* Animated dashed line for current path */}
+              <style>
+                {`
+                  @keyframes dash-flow {
+                    to { stroke-dashoffset: -40; }
+                  }
+                  .flow-path {
+                    animation: dash-flow 1.5s linear infinite;
+                  }
+                `}
+              </style>
+            </defs>
+
+            {/* Render edges (connections) with dashed style */}
+            {MAP_GRAPH.edges.map((edge, i) => {
+              const [fromId, toId] = edge;
+              const fromNode = MAP_GRAPH.nodes.find(n => n.id === fromId);
+              const toNode = MAP_GRAPH.nodes.find(n => n.id === toId);
+              if (!fromNode || !toNode) return null;
+
+              const fromPos = getNodePosition(fromNode.row, fromNode.col);
+              const toPos = getNodePosition(toNode.row, toNode.col);
+              const edgeState = getEdgeState(edge);
+
+              return (
+                <line
+                  key={`edge-${i}`}
+                  x1={fromPos.x}
+                  y1={fromPos.y}
+                  x2={toPos.x}
+                  y2={toPos.y}
+                  stroke={edgeState === 'highlighted' ? '#D4A574' : '#A8D5E2'}
+                  strokeWidth={edgeState === 'highlighted' ? 3 : 2}
+                  strokeOpacity={edgeState === 'highlighted' ? 0.85 : 0.35}
+                  strokeLinecap="round"
+                  strokeDasharray={edgeState === 'highlighted' ? '10 5' : '8 4'}
+                  className={edgeState === 'highlighted' ? 'flow-path' : ''}
+                />
+              );
+            })}
+
+            {/* Render nodes */}
+            {MAP_GRAPH.nodes.map(node => {
+              const pos = getNodePosition(node.row, node.col);
+              const state = getNodeState(node.id);
+              const isHovered = hoveredNode === node.id;
+              const canClick = state === 'current' || state === 'reachable';
+
+              // Node gradient fills based on state
+              const nodeFill =
+                state === 'current' ? 'url(#currentNodeGradient)' :
+                state === 'reachable' ? (isHovered ? 'url(#reachableHoverGradient)' : 'url(#reachableNodeGradient)') :
+                'url(#unreachableNodeGradient)';
+
+              const strokeColor =
+                state === 'current' ? '#B8860B' :
+                state === 'reachable' ? '#5A9FB0' :
+                '#7A7A7A';
+
+              const strokeWidth =
+                state === 'current' ? 3 :
+                state === 'reachable' ? 2.5 : 1.5;
+
+              return (
+                <g
+                  key={node.id}
+                  style={{
+                    transform: `translate(${pos.x}px, ${pos.y}px)`,
+                    transformOrigin: 'center'
+                  }}
+                >
+                  {/* Glow effect for current location */}
+                  {state === 'current' && (
+                    <circle
+                      cx="0"
+                      cy="0"
+                      r="80"
+                      fill="url(#currentGlow)"
+                      className="animate-pulse"
+                    />
+                  )}
+
+                  {/* Outer glow for hovered reachable nodes */}
+                  {isHovered && state === 'reachable' && (
+                    <circle
+                      cx="0"
+                      cy="0"
+                      r="65"
+                      fill="none"
+                      stroke="#89CFF0"
+                      strokeWidth="8"
+                      opacity="0.3"
+                      filter="url(#nodeGlow)"
+                    />
+                  )}
+
+                  {/* Node circle with gradient fill */}
+                  <circle
+                    cx="0"
+                    cy="0"
+                    r="50"
+                    fill={nodeFill}
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidth}
+                    opacity={state === 'unreachable' ? 0.55 : 1}
+                    filter="url(#nodeShadow)"
+                    className={canClick ? 'cursor-pointer' : 'cursor-not-allowed'}
+                    onMouseEnter={() => setHoveredNode(node.id)}
+                    onMouseLeave={() => setHoveredNode(null)}
+                    onClick={() => {
+                      if (canClick && state !== 'current') {
+                        onSelect(node.name);
+                      }
+                    }}
+                  />
+
+                  {/* Inner highlight for gem effect */}
+                  <circle
+                    cx="-10"
+                    cy="-10"
+                    r="15"
+                    fill="#FFFFFF"
+                    opacity={state === 'unreachable' ? 0.1 : 0.25}
+                    className="pointer-events-none"
+                  />
+
+                  {/* Node label (short name) */}
+                  <text
+                    x="0"
+                    y="6"
+                    textAnchor="middle"
+                    fontSize="18"
+                    fontWeight="bold"
+                    fill="#5D4037"
+                    className={`pointer-events-none select-none ${
+                      state === 'unreachable' ? 'opacity-60' : ''
+                    }`}
+                    style={{ textShadow: '0 1px 2px rgba(255,255,255,0.8)' }}
+                  >
+                    {MAP_SHORT_NAMES[node.id]}
+                  </text>
+
+                  {/* Current location indicator */}
+                  {state === 'current' && (
+                    <text
+                      x="0"
+                      y="75"
+                      textAnchor="middle"
+                      fontSize="11"
+                      fontWeight="bold"
+                      fill="#C27B28"
+                      className="pointer-events-none"
+                      style={{ textShadow: '0 1px 2px rgba(255,255,255,0.5)' }}
+                    >
+                      当前位置
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+
+            {/* Hover tooltip layer (rendered on top, outside node groups) */}
+            {hoveredNode && (() => {
+              const node = MAP_GRAPH.nodes.find(n => n.id === hoveredNode);
+              const state = getNodeState(hoveredNode);
+              if (!node || state === 'unreachable') return null;
+
+              const pos = getNodePosition(node.row, node.col);
+              return (
+                <g className="pointer-events-none" key="tooltip">
+                  <rect
+                    x={pos.x - 120}
+                    y={pos.y + 75}
+                    width="240"
+                    height="65"
+                    rx="12"
+                    fill="#FFFEF8"
+                    stroke="#D4A574"
+                    strokeWidth="2"
+                    opacity="0.95"
+                    filter="drop-shadow(0 6px 12px rgba(0,0,0,0.15))"
+                  />
+                  <text
+                    x={pos.x}
+                    y={pos.y + 98}
+                    textAnchor="middle"
+                    fontSize="13"
+                    fontWeight="bold"
+                    fill="#5D4037"
+                  >
+                    {node.name}
+                  </text>
+                  <text
+                    x={pos.x}
+                    y={pos.y + 118}
+                    textAnchor="middle"
+                    fontSize="11"
+                    fill="#8B7355"
+                    fontStyle="italic"
+                  >
+                    {node.desc}
+                  </text>
+                </g>
+              );
+            })()}
+          </svg>
+        </div>
       </div>
     </div>
   );

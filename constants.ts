@@ -367,3 +367,13 @@ export const MAP_GRAPH = {
     ['ruins', 'desert'],
   ],
 };
+
+// 地图节点简称（用于节点图显示）
+export const MAP_SHORT_NAMES: Record<string, string> = {
+  capital: '王都',
+  market: '集市',
+  airship: '飞艇港',
+  forest: '森林',
+  ruins: '遗迹',
+  desert: '荒漠',
+};
