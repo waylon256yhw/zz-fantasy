@@ -18,7 +18,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
   const [selectedClass, setSelectedClass] = useState<ClassType>(ClassType.ALCHEMIST);
   const [gender, setGender] = useState<'Male'|'Female'|'Non-binary'>('Female');
   
-  // Mobile Stepper State: 0 = Class/Visuals, 1 = Details, 2 = Summary/Stats
+  // Mobile Stepper State: 0 = Form/Details, 1 = Class/Visuals, 2 = Summary/Stats
   const [mobileStep, setMobileStep] = useState(0);
   
   const stats = INITIAL_STATS[selectedClass];
@@ -54,12 +54,12 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
   const nextStep = () => setMobileStep(prev => Math.min(2, prev + 1));
   const prevStep = () => setMobileStep(prev => Math.max(0, prev - 1));
 
-  // --- Render Functions (Use functions instead of components to prevent remounting/flickering) ---
+  // --- Render Functions ---
 
   const renderVisualsSection = () => (
     <div className="h-full flex flex-col gap-3 lg:gap-4">
         {/* Immersive Card - Matches GameInterface Style */}
-        <div className="relative flex-1 min-h-[260px] lg:min-h-0 bg-[#2C241F] rounded-[2rem] lg:rounded-[2.5rem] shadow-xl overflow-hidden border-[4px] lg:border-[6px] border-white ring-1 ring-[#E6D7C3] group">
+        <div className="relative flex-1 min-h-[240px] lg:min-h-0 bg-[#2C241F] rounded-[2rem] lg:rounded-[2.5rem] shadow-xl overflow-hidden border-[4px] lg:border-[6px] border-white ring-1 ring-[#E6D7C3] group">
             {/* Main Character Image */}
             <img 
               src={getCharacterImage(selectedClass, gender)} 
@@ -98,7 +98,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
               <button
                 key={c}
                 onClick={() => setSelectedClass(c)}
-                className={`relative px-2 py-2.5 lg:px-4 lg:py-3 rounded-xl lg:rounded-2xl font-bold text-xs lg:text-sm transition-all duration-200 border-2 shadow-sm flex items-center justify-center gap-2 overflow-hidden group/btn ${
+                className={`relative px-2 py-2 lg:px-4 lg:py-3 rounded-xl lg:rounded-2xl font-bold text-xs lg:text-sm transition-all duration-200 border-2 shadow-sm flex items-center justify-center gap-2 overflow-hidden group/btn ${
                   selectedClass === c 
                   ? 'bg-[#5D4037] border-[#5D4037] text-white shadow-md translate-y-[-2px]' 
                   : 'bg-white border-[#E6D7C3] text-[#8B7355] hover:border-[#5D4037]/50 hover:bg-[#FFF9F0]'
@@ -256,12 +256,17 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
 
         {/* --- DESKTOP LAYOUT (Grid) --- */}
         <div className="hidden lg:grid grid-cols-12 gap-6 xl:gap-8 items-stretch">
-          <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="col-span-3 flex flex-col h-full">
-             {renderVisualsSection()}
-          </motion.div>
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="col-span-5 flex flex-col h-full">
+          {/* Column 1: Form Section (Basic Info) */}
+          <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="col-span-5 flex flex-col h-full">
              {renderFormSection()}
           </motion.div>
+
+          {/* Column 2: Visuals Section (Portrait & Class) */}
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="col-span-3 flex flex-col h-full">
+             {renderVisualsSection()}
+          </motion.div>
+
+          {/* Column 3: Summary Section */}
           <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="col-span-4 flex flex-col h-full">
              {renderSummarySection()}
           </motion.div>
@@ -276,10 +281,13 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -50 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-32" // INCREASED PADDING FOR BOTTOM NAV
+                className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-32" 
              >
-                {mobileStep === 0 && renderVisualsSection()}
-                {mobileStep === 1 && renderFormSection()}
+                {/* Step 0: Form / Basic Info */}
+                {mobileStep === 0 && renderFormSection()}
+                {/* Step 1: Visuals / Class Select */}
+                {mobileStep === 1 && renderVisualsSection()}
+                {/* Step 2: Summary */}
                 {mobileStep === 2 && renderSummarySection()}
              </motion.div>
            </AnimatePresence>
