@@ -203,7 +203,7 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
            </div>
 
            {/* Slot List */}
-           <div className="flex-1 overflow-y-auto custom-scrollbar -mx-6 px-6 md:px-0 md:mx-0 pb-20 md:pb-0">
+           <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar -mx-6 px-6 md:px-0 md:mx-0 pb-20 md:pb-0">
               <div className="space-y-4 pb-4">
               {saves.map((save) => (
                   <motion.button
