@@ -135,10 +135,25 @@ export const getCharacterImage = (classType: ClassType, gender: string): string 
 export const ALL_ITEMS = {
   // Consumables (消耗品)
   POTION: { id: 'item_potion', name: '治愈药水', description: '恢复50点生命值。尝起来像樱桃味。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.potion },
-  BREAD: { id: 'item_bread', name: '旅行干粮', description: '简单的面包，能果腹。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.treasure },
+  BREAD: { id: 'item_bread', name: '旅行干粮', description: '简单的面包，能果腹。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.bread },
   APPLE_SNACK: { id: 'item_apple', name: '苹果小食', description: '爽脆的补给，恢复少量生命。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.apple },
   STAMINA_STEW: { id: 'item_stew', name: '猎人炖汤', description: '热气腾腾，补充体力，恢复中量生命。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.stew },
   ARCANE_TONIC: { id: 'item_arcane_tonic', name: '秘药：灵能酿', description: '短时间内提升专注，恢复中量魔力。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.purplePotion },
+  TAVERN_BEER: { id: 'item_beer', name: '酒馆麦酒', description: '泡沫丰富的麦芽啤酒，能稍微暖暖胃。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.beer },
+  FOREST_BERRIES: { id: 'item_berries', name: '森林浆果碟', description: '酸酸甜甜的一小碟浆果，适合边听故事边吃。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.berries },
+  SWEET_CAKE: { id: 'item_cake', name: '奶油小蛋糕', description: '裱花细致的蛋糕，让人一口气忘掉疲惫。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.cake },
+  MORNING_CROISSANT: { id: 'item_croissant', name: '清晨牛角包', description: '刚出炉的黄油牛角包，层层酥脆。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.croissant },
+  GRILLED_FISH: { id: 'item_fish', name: '炭烤鱼排', description: '外焦里嫩的鱼排，常见于港口小摊。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.fish },
+  FRESH_JUICE: { id: 'item_juice', name: '鲜榨果汁', description: '色彩明亮的果汁，解渴又提神。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.juice },
+  STREET_KEBAB: { id: 'item_kebab', name: '街边肉串', description: '带着炭火香气的肉串，是夜行冒险者最常点的宵夜。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.kebab },
+  COUNTRY_LOAF: { id: 'item_loaf', name: '乡村大面包', description: '外壳略硬但越嚼越香，适合长途旅行时切片享用。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.loaf },
+  ROAST_MEAT: { id: 'item_meat', name: '火烤肉盘', description: '分量十足的烤肉拼盘，很难一个人吃完。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.meat },
+  HONEY_PANCAKES: { id: 'item_pancakes', name: '蜂蜜松饼塔', description: '淋上厚厚一层蜂蜜的松饼，高得有点危险。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.pancakes },
+  APPLE_PIE: { id: 'item_pie', name: '苹果派', description: '据说不同酒馆的苹果派都有各自的秘密配方。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.pie },
+  RAMEN_BOWL: { id: 'item_ramen', name: '热腾腾拉面', description: '汤头浓郁，适合跑了一整天任务之后。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.ramen },
+  RICE_SET: { id: 'item_rice', name: '商人定食', description: '简单却分量十足的米饭套餐，常出现在商队驻扎地。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.rice },
+  SUSHI_PLATTER: { id: 'item_sushi', name: '寿司拼盘', description: '来自远洋的做法，在港口一带渐渐流行起来。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.sushi },
+  FRUIT_TART: { id: 'item_tart', name: '季节水果挞', description: '摆盘精致的水果挞，是节庆时最抢手的甜点之一。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.tart },
 
   // Equipment (装备)
   SWORD: { id: 'item_sword', name: '制式长剑', description: '标准装备，保养良好。', type: 'Equipment' as const, rarity: 'Common' as const, icon: IMAGES.icons.sword },
@@ -155,6 +170,7 @@ export const ALL_ITEMS = {
   HERB_BUNDLE: { id: 'item_herbs', name: '药草包', description: '常见草药，基础炼金与疗伤素材。', type: 'Material' as const, rarity: 'Common' as const, icon: IMAGES.icons.herbs },
   RUNE_FRAGMENT: { id: 'item_rune', name: '符文石碎片', description: '刻有微光符文的石片，可作为能量媒介。', type: 'Material' as const, rarity: 'Rare' as const, icon: IMAGES.icons.runeStone },
   STAR_CRYSTAL: { id: 'item_star_crystal', name: '星辰结晶', description: '闪烁的结晶，蕴含强大而稳定的能量。', type: 'Material' as const, rarity: 'Epic' as const, icon: IMAGES.icons.starCrystal },
+  RIVER_STONES: { id: 'item_stones', name: '占卜河石', description: '被磨得圆润的鹅卵石，旅人喜欢拿来占卜运势。', type: 'Material' as const, rarity: 'Common' as const, icon: IMAGES.icons.stones },
 
   // Key Items (关键物品)
   BOOK: { id: 'item_book', name: '笔记本', description: '记录冒险的日志。', type: 'Key' as const, rarity: 'Common' as const, icon: IMAGES.icons.book },
@@ -165,6 +181,8 @@ export const ALL_ITEMS = {
   HOUSE_DEED: { id: 'item_deed', name: '房契', description: '一处小屋的所有权证明。', type: 'Key' as const, rarity: 'Rare' as const, icon: IMAGES.icons.house },
   EXPLORER_COMPASS: { id: 'item_compass', name: '寻路罗盘', description: '可记录探索路径的罗盘，适合野外行动。', type: 'Key' as const, rarity: 'Rare' as const, icon: IMAGES.icons.compass },
   ANCIENT_SCROLL: { id: 'item_scroll', name: '古代卷轴', description: '布满符文的卷轴，学者们的珍贵线索。', type: 'Key' as const, rarity: 'Rare' as const, icon: IMAGES.icons.scroll },
+  GUILD_BANNER: { id: 'item_banner', name: '行会旗帜', description: '绣有行会纹章的旗帜，常在庆典或联赛中被高高举起。', type: 'Key' as const, rarity: 'Rare' as const, icon: IMAGES.icons.banner },
+  TAVERN_GOBLET: { id: 'item_goblet', name: '刻纹酒杯', description: '底部刻着某家酒馆的名字，是少数人才有的“常客纪念品”。', type: 'Key' as const, rarity: 'Rare' as const, icon: IMAGES.icons.goblet },
 
   // Quest/Enemy related (任务/敌人相关)
   GOBLIN_EAR: { id: 'item_goblin_ear', name: '哥布林耳朵', description: '讨伐任务的证明。', type: 'Material' as const, rarity: 'Common' as const, icon: IMAGES.icons.goblin },
@@ -216,6 +234,8 @@ const STARTING_ITEMS_CONFIG: Record<ClassType, Array<{ key: keyof typeof ALL_ITE
     { key: 'POTION', qty: 3 },
     { key: 'ARCANE_TONIC', qty: 2 },
     { key: 'HERB_BUNDLE', qty: 3 },
+    { key: 'FOREST_BERRIES', qty: 1 },
+    { key: 'FRUIT_TART', qty: 1 },
     { key: 'BOOK' }
   ],
   [ClassType.KNIGHT]: [
@@ -223,12 +243,16 @@ const STARTING_ITEMS_CONFIG: Record<ClassType, Array<{ key: keyof typeof ALL_ITE
     { key: 'SHIELD' },
     { key: 'SWIFT_BOOTS' },
     { key: 'STAMINA_STEW', qty: 2 },
-    { key: 'BREAD', qty: 3 }
+    { key: 'BREAD', qty: 2 },
+    { key: 'ROAST_MEAT', qty: 1 },
+    { key: 'TAVERN_BEER', qty: 1 }
   ],
   [ClassType.SKY_PIRATE]: [
     { key: 'HUNTER_CROSSBOW' },
     { key: 'REINFORCED_QUIVER' },
     { key: 'APPLE_SNACK', qty: 2 },
+    { key: 'GRILLED_FISH', qty: 1 },
+    { key: 'SUSHI_PLATTER', qty: 1 },
     { key: 'EXPLORER_COMPASS' },
     { key: 'GOLD_COIN' }
   ],
@@ -238,6 +262,8 @@ const STARTING_ITEMS_CONFIG: Record<ClassType, Array<{ key: keyof typeof ALL_ITE
     { key: 'ANCIENT_SCROLL' },
     { key: 'RUNE_FRAGMENT', qty: 2 },
     { key: 'STAR_CRYSTAL' },
+    { key: 'RAMEN_BOWL', qty: 1 },
+    { key: 'HONEY_PANCAKES', qty: 1 },
     { key: 'ARCANE_TONIC', qty: 1 }
   ],
 };

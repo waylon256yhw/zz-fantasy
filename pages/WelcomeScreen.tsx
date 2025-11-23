@@ -10,39 +10,39 @@ import { useGame } from '../src/contexts/GameContext';
 const MODEL_OPTIONS = [
   {
     value: 'nalang-turbo-0826',
-    label: 'Turbo ⚡',
-    description: '最快速 | 32K上下文',
-    badge: '快速'
+    label: 'Turbo',
+    description: '32K · 轻量快速',
+    badge: '轻量'
   },
   {
     value: 'nalang-medium-0826',
-    label: 'Medium ⚖️',
-    description: '平衡性能 | 32K上下文',
-    badge: '平衡'
+    label: 'Medium',
+    description: '32K · 均衡通用',
+    badge: '均衡'
   },
   {
     value: 'nalang-max-0826',
-    label: 'Max 🎯',
-    description: '强大推理 | 32K上下文',
-    badge: '推荐'
+    label: 'Max',
+    description: '32K · 叙事推荐',
+    badge: '默认'
   },
   {
     value: 'nalang-xl-0826',
-    label: 'XL 🧠',
-    description: '最强理解 | 32K上下文',
-    badge: '高级'
+    label: 'XL',
+    description: '32K · 长篇细节',
+    badge: '长篇'
   },
   {
     value: 'nalang-max-0826-16k',
-    label: 'Max-16K 🚀',
-    description: '快速强大 | 16K上下文',
-    badge: '高速'
+    label: 'Max · 16K',
+    description: '16K · 更快的 Max',
+    badge: '快速'
   },
   {
     value: 'nalang-xl-0826-16k',
-    label: 'XL-16K 🌟',
-    description: '快速稳定 | 16K上下文',
-    badge: '稳定'
+    label: 'XL · 16K',
+    description: '16K · 更快的 XL',
+    badge: '快速'
   },
 ];
 
@@ -201,9 +201,7 @@ const WelcomeScreen: React.FC = () => {
                       <div className="text-jrpg-text/60">
                         {MODEL_OPTIONS.find(m => m.value === selectedModel)?.description}
                       </div>
-                      <div className="pt-1 border-t border-jrpg-border/30 text-jrpg-text/50">
-                        💡 推荐：Max / XL 获得更稳的叙事体验
-                      </div>
+                      <div className="pt-1 border-t border-jrpg-border/30 text-jrpg-text/50" />
                     </div>
                   </div>
                 </div>

@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { TypewriterText } from '../components/RPGComponents';
-import { Character, LogEntry, Item } from '../types';
+import { Character, LogEntry, Item, ClassType } from '../types';
 import { STARTING_LOGS, CLASS_LABELS, IMAGES, getAvailableQuests, getActiveQuests, getCompletedQuests, ALL_ITEMS, LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, MAP_GRAPH, MAP_SHORT_NAMES } from '../constants';
 import { useGame, ShopState } from '../src/contexts/GameContext';
 import { DZMMService } from '../src/services/dzmmService';
-import { buildSystemPrompt, buildOpeningGreeting } from '../src/utils/promptBuilder';
+import { buildSystemPrompt, buildPlayerContext, buildOpeningGreeting } from '../src/utils/promptBuilder';
 import { detectEvents, applyEvents } from '../src/utils/eventDetector';
 import { parseRichText } from '../src/utils/richTextParser';
 import { detectQuestCompletion } from '../src/utils/questDetector';
@@ -40,6 +40,19 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } fro
 type SheetType = 'INVENTORY' | 'STATUS' | 'GUILD' | 'SHOP' | 'HONOR' | 'MAP' | null;
 const CHEAT_MODE = false; // 开发专用金手指，发布前请置为 false
 
+const getInitialLocationForClass = (classType: ClassType): string => {
+  switch (classType) {
+    case ClassType.SKY_PIRATE:
+      return '碧空港 - 飞艇码头';
+    case ClassType.SCHOLAR:
+      return '王都阿斯拉 - 中央广场';
+    case ClassType.ALCHEMIST:
+    case ClassType.KNIGHT:
+    default:
+      return '王都阿斯拉 - 中央广场';
+  }
+};
+
 const GameInterface: React.FC = () => {
   const { character, logs, setLogs, location, isDzmmReady, currentOpening, addLog, setCharacter, selectedModel, acceptQuest, completeQuest, useItem, shopState, refreshShop, purchaseShopItem, claimOverlordProof, setLocation } = useGame();
   const navigate = useNavigate();
@@ -56,12 +69,27 @@ const GameInterface: React.FC = () => {
   useEffect(() => {
     if (!character) {
       navigate('/create');
-    } else {
-      if (logs.length === 0) {
-        setLogs(STARTING_LOGS(character.name).map((l, i) => ({ ...l, id: `init-${i}` })));
-      }
+      return;
     }
-  }, [character, navigate]);
+
+    if (logs.length === 0) {
+      const openingText = buildOpeningGreeting(character);
+      const openingLog: LogEntry = {
+        id: 'init-0',
+        speaker: '', // 旁白 / 第三人称叙述者
+        text: openingText,
+        type: 'dialogue',
+      };
+
+      // 根据职业设置初始位置，让地图与开场白保持一致
+      const initialLocation = getInitialLocationForClass(character.classType);
+      if (initialLocation !== location) {
+        setLocation(initialLocation);
+      }
+
+      setLogs([openingLog]);
+    }
+  }, [character, navigate, logs.length, location, setLocation, setLogs]);
 
   useEffect(() => {
     if (logsContainerRef.current) {
@@ -122,12 +150,25 @@ const GameInterface: React.FC = () => {
         }
       }
 
-      // Add current action
+      // Add current action with <last_input> emphasis block + D0 玩家上下文
+      const lastInputBlock = `<last_input>
+玩家当前指令如下，请以此为最高优先级进行叙事响应：
+${action}
+</last_input>`;
+
+      const playerContextBlock = buildPlayerContext(
+        character,
+        location,
+        character.activeQuests,
+        shopState.purchasedKeys?.length || 0
+      );
+      const combinedBlock = `${lastInputBlock}\n\n${playerContextBlock}`;
+
       const lastMsg = messages[messages.length - 1];
       if (lastMsg && lastMsg.role === 'user') {
-        lastMsg.content += `\n${action}`;
+        lastMsg.content += `\n\n${combinedBlock}`;
       } else {
-        messages.push({ role: 'user', content: action });
+        messages.push({ role: 'user', content: combinedBlock });
       }
 
       // Call DZMM API with streaming (use selected model)
