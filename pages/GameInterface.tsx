@@ -427,9 +427,9 @@ const GameInterface: React.FC = () => {
       <div className="flex-1 flex flex-col relative z-10 h-full min-w-0">
           
           {/* Header Navigation - Adapted for Mobile */}
-          <header className="flex-none flex justify-between items-center mb-4 px-1 z-50 h-14 gap-2">
+          <header className="flex-none flex items-center mb-4 px-0 md:px-1 z-50 h-14">
               {/* Scrollable Nav Container for Mobile */}
-              <div className="flex gap-2 flex-shrink-0 ml-auto items-center overflow-x-auto no-scrollbar pb-1 -mb-1 pl-2 pr-3 mask-fade-left">
+              <div className="flex gap-1.5 md:gap-2 flex-1 items-center overflow-x-auto no-scrollbar pb-1 -mb-1 pl-3 pr-6 md:pl-2 md:pr-3">
                   <NavButton icon={<Backpack size={18} />} label="背包" onClick={() => setActiveSheet('INVENTORY')} />
                   <NavButton icon={<User size={18} />} label="状态" onClick={() => setActiveSheet('STATUS')} />
                   <NavButton icon={<ShieldCheck size={18} />} label="公会" onClick={() => setActiveSheet('GUILD')} />
@@ -449,12 +449,12 @@ const GameInterface: React.FC = () => {
                       <Coins size={14} /> DEV+1000G
                     </button>
                   )}
-                  <div className="w-px h-8 bg-[#E6D7C3] mx-1 shrink-0" />
+                  <div className="w-px h-6 md:h-8 bg-[#E6D7C3] mx-0.5 md:mx-1 shrink-0" />
                   <NavButton icon={<Menu size={18} />} label="系统" onClick={handleSystemClick} />
-                  
-                  <button 
+
+                  <button
                     onClick={() => navigate('/')}
-                    className="group bg-white/80 hover:bg-red-50 text-[#5D4037] hover:text-red-500 px-2.5 py-2 rounded-lg border border-white hover:border-red-200 shadow-sm transition-all active:scale-95 flex items-center gap-1 shrink-0 ml-1"
+                    className="group bg-white/80 hover:bg-red-50 text-[#5D4037] hover:text-red-500 px-1.5 md:px-2.5 py-1.5 md:py-2 rounded-lg md:rounded-xl border border-white hover:border-red-200 shadow-sm transition-all active:scale-95 flex items-center gap-1 shrink-0 ml-0.5 md:ml-1"
                     title="返回标题"
                   >
                     <LogOut size={18} />
@@ -807,9 +807,9 @@ const CornerDecor = ({ className }: { className?: string }) => (
 );
 
 const NavButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
-  <button 
+  <button
     onClick={onClick}
-    className="group bg-white/80 hover:bg-white text-[#5D4037] hover:text-[#FF9FAA] p-2 md:p-2.5 rounded-xl border border-white shadow-sm transition-all active:scale-95 flex items-center gap-2 shrink-0"
+    className="group bg-white/80 hover:bg-white text-[#5D4037] hover:text-[#FF9FAA] p-1.5 md:p-2.5 rounded-xl border border-white shadow-sm transition-all active:scale-95 flex items-center gap-1.5 md:gap-2 shrink-0"
     title={label}
   >
     {icon}
