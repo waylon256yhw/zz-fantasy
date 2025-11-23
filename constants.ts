@@ -84,3 +84,14 @@ export const STARTING_LOGS = (name: string): any[] => [
   { speaker: '旁白', text: `${name}，你猛地醒了过来。今天是冒险开始的日子。`, type: 'narration' },
   { speaker: '青梅竹马', text: '喂——！你要睡到什么时候呀？太阳都晒屁股啦！', type: 'dialogue' },
 ];
+
+// Consolidated list of all assets for preloading
+export const ALL_ASSETS = [
+  ...Object.values(IMAGES.bg),
+  ...Object.values(IMAGES.char),
+  ...Object.values(IMAGES.icons),
+  // Generate all possible character portrait combinations
+  ...Object.values(ClassType).flatMap(c => 
+    ['Male', 'Female'].map(g => getCharacterImage(c, g))
+  )
+];
