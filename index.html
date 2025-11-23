@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>艾瑟瑞亚战纪</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;600;700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              serif: ['"Noto Serif SC"', 'serif'],
+              sans: ['"Noto Sans SC"', '"Quicksand"', 'sans-serif'],
+            },
+            colors: {
+              'jrpg-bg': '#FFF9F0',      // Warm Cream
+              'jrpg-text': '#5D4037',    // Warm Dark Brown (Softer than black)
+              'jrpg-primary': '#FF9FAA', // Soft Pink (Main Buttons)
+              'jrpg-secondary': '#89CFF0', // Baby Blue
+              'jrpg-accent': '#FFD166',  // Warm Yellow/Gold
+              'jrpg-green': '#B5EAD7',   // Mint Green
+              'jrpg-panel': 'rgba(255, 255, 255, 0.90)',
+              'jrpg-border': '#E6D7C3',
+            },
+            animation: {
+              'float': 'float 6s ease-in-out infinite',
+              'bounce-slow': 'bounce 3s infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        background-color: #FFF9F0;
+        color: #5D4037;
+        overflow: hidden;
+      }
+      /* Custom Scrollbar - Cuter, rounder */
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(93, 64, 55, 0.05);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #FFD166;
+        border-radius: 10px;
+        border: 2px solid #FFF9F0;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #FF9FAA;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
