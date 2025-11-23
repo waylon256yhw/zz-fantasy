@@ -16,7 +16,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
   const [name, setName] = useState('');
   const [appearance, setAppearance] = useState('');
   const [selectedClass, setSelectedClass] = useState<ClassType>(ClassType.ALCHEMIST);
-  const [gender, setGender] = useState<'Male'|'Female'|'Non-binary'>('Female');
+  const [gender, setGender] = useState<'Male'|'Female'>('Female');
   
   // Mobile Stepper State: 0 = Form/Details, 1 = Class/Visuals, 2 = Summary/Stats
   const [mobileStep, setMobileStep] = useState(0);
@@ -47,8 +47,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
 
   const genderMap: Record<string, string> = {
     'Male': '男性',
-    'Female': '女性',
-    'Non-binary': '其他'
+    'Female': '女性'
   };
 
   const nextStep = () => setMobileStep(prev => Math.min(2, prev + 1));
@@ -59,14 +58,17 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
   const renderVisualsSection = () => (
     <div className="h-full flex flex-col gap-3 lg:gap-4">
         {/* Immersive Card - Matches GameInterface Style */}
-        <div className="relative flex-1 min-h-[240px] lg:min-h-0 bg-[#2C241F] rounded-[2rem] lg:rounded-[2.5rem] shadow-xl overflow-hidden border-[4px] lg:border-[6px] border-white ring-1 ring-[#E6D7C3] group">
+        <div className="relative flex-1 min-h-[240px] lg:min-h-0 bg-[#2C241F] rounded-[2rem] lg:rounded-[2.5rem] shadow-xl overflow-hidden border-[4px] lg:border-[6px] border-white ring-1 ring-[#E6D7C3] group hover:shadow-[0_0_50px_rgba(255,209,102,0.5)] transition-all duration-500">
             {/* Main Character Image */}
-            <img 
-              src={getCharacterImage(selectedClass, gender)} 
-              alt="Character Preview" 
+            <img
+              src={getCharacterImage(selectedClass, gender)}
+              alt="Character Preview"
               className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
             />
-            
+
+            {/* Hover Glow Effect */}
+            <div className="absolute inset-0 bg-[#FFD166]/0 group-hover:bg-[#FFD166]/10 transition-all duration-500 rounded-[2rem] lg:rounded-[2.5rem]" />
+
             {/* Gradient Overlay for Text Readability */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#2C241F] via-[#2C241F]/30 to-transparent opacity-90" />
             
@@ -136,14 +138,14 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
         <div>
           <label className="text-jrpg-text/80 font-bold text-sm ml-2 mb-1.5 lg:mb-2 block">性别</label>
           <div className="flex gap-2 lg:gap-4 bg-jrpg-bg p-1.5 lg:p-2 rounded-2xl border-2 border-jrpg-border w-full lg:w-fit overflow-x-auto">
-            {['Male', 'Female', 'Non-binary'].map((g) => (
+            {['Male', 'Female'].map((g) => (
               <label key={g} className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-3 lg:px-4 py-2 rounded-xl cursor-pointer transition-all whitespace-nowrap ${gender === g ? 'bg-white shadow-sm text-jrpg-secondary' : 'text-jrpg-text/50 hover:text-jrpg-text'}`}>
-                <input 
-                  type="radio" 
-                  name="gender" 
-                  value={g} 
+                <input
+                  type="radio"
+                  name="gender"
+                  value={g}
                   checked={gender === g}
-                  onChange={() => setGender(g as any)}
+                  onChange={() => setGender(g as 'Male'|'Female')}
                   className="hidden"
                 />
                 <span className="font-bold text-sm">{genderMap[g]}</span>
@@ -196,6 +198,8 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
                 strokeWidth={3}
                 fill="#FFD166"
                 fillOpacity={0.5}
+                animationDuration={1200}
+                animationBegin={0}
               />
             </RadarChart>
           </ResponsiveContainer>
@@ -304,10 +308,14 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
               
               <div className="flex gap-2">
                  {[0, 1, 2].map(step => (
-                   <div 
-                     key={step} 
-                     className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${mobileStep === step ? 'bg-[#FFD166] scale-125' : 'bg-[#E6D7C3]/80'}`}
-                   />
+                   <div
+                     key={step}
+                     className={`relative w-2.5 h-2.5 rounded-full transition-all duration-300 ${mobileStep === step ? 'bg-[#FFD166] scale-125' : 'bg-[#E6D7C3]/80'}`}
+                   >
+                     {mobileStep === step && (
+                       <div className="absolute inset-0 rounded-full bg-[#FFD166] animate-ping opacity-75" />
+                     )}
+                   </div>
                  ))}
               </div>
 

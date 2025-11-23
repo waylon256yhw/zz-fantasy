@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Character, ClassType, CharacterStats } from '../types';
 import { CLASS_LABELS, IMAGES, INITIAL_STATS, getCharacterImage } from '../constants';
-import { ChevronLeft, Save, Download, Trash2, Clock, MapPin, Settings, Music, Volume2, Monitor, CheckCircle, AlertCircle, X, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, Save, Download, Trash2, Clock, MapPin, CheckCircle, AlertCircle, X, ArrowLeft } from 'lucide-react';
 import { RPGButton } from '../components/RPGComponents';
 
 // Initial Mock Data
@@ -42,11 +42,10 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
   const tabs = [
     { id: 'SAVE', label: '记录冒险', icon: <Save size={18} />, disabled: !fromGame },
     { id: 'LOAD', label: '重温回忆', icon: <Download size={18} />, disabled: false },
-    { id: 'SETTINGS', label: '环境设置', icon: <Settings size={18} />, disabled: false },
   ];
 
-  // Helper to determine if the "Right Page" (Detail/Settings) should be visible on mobile
-  const showDetailPanel = selectedSlot !== null || activeTab === 'SETTINGS';
+  // Helper to determine if the "Right Page" (Detail) should be visible on mobile
+  const showDetailPanel = selectedSlot !== null;
 
   const handleBack = () => {
     if (fromGame) {
@@ -58,10 +57,6 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
 
   const closeDetailPanel = () => {
     setSelectedSlot(null);
-    if (activeTab === 'SETTINGS') {
-      // Revert to default tab for context
-      setActiveTab(fromGame ? 'SAVE' : 'LOAD');
-    }
   };
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -184,9 +179,7 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
                  disabled={tab.disabled}
                  onClick={() => {
                    setActiveTab(tab.id as any);
-                   if (tab.id !== 'SETTINGS') {
-                      setSelectedSlot(null);
-                   }
+                   setSelectedSlot(null);
                  }}
                  className={`flex-1 py-3 rounded-t-xl font-bold flex items-center justify-center gap-2 transition-all ${
                    activeTab === tab.id 
@@ -264,9 +257,7 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
               <button onClick={closeDetailPanel} className="p-2 -ml-2 text-[#5D4037]">
                  <ArrowLeft size={24} />
               </button>
-              <h2 className="text-xl font-bold ml-2 text-[#5D4037]">
-                {activeTab === 'SETTINGS' ? '环境设置' : '档案详情'}
-              </h2>
+              <h2 className="text-xl font-bold ml-2 text-[#5D4037]">档案详情</h2>
            </div>
 
            {/* Bookmark (Desktop Only) */}
@@ -274,10 +265,7 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
               <div className="w-4 h-4 rounded-full bg-white/30" />
            </div>
 
-           {activeTab === 'SETTINGS' ? (
-             <SettingsPanel />
-           ) : (
-             <AnimatePresence mode="wait">
+           <AnimatePresence mode="wait">
                {selectedSlot ? (
                  <motion.div 
                    key="details"
@@ -373,7 +361,6 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
                  </motion.div>
                )}
              </AnimatePresence>
-           )}
         </div>
       </motion.div>
 
@@ -404,41 +391,5 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
     </div>
   );
 };
-
-const SettingsPanel = () => (
-  <div className="h-full flex flex-col p-2 md:p-4">
-    <h2 className="hidden md:block text-2xl font-serif font-bold text-[#5D4037] mb-8 border-b border-[#E6D7C3] pb-4">系统环境</h2>
-    
-    <div className="space-y-8">
-      <div className="space-y-3">
-         <label className="flex items-center gap-2 font-bold text-[#5D4037]">
-            <Music size={20} /> 背景音乐
-         </label>
-         <input type="range" className="w-full accent-[#5D4037] bg-gray-200 h-2 rounded-lg appearance-none cursor-pointer" />
-      </div>
-
-      <div className="space-y-3">
-         <label className="flex items-center gap-2 font-bold text-[#5D4037]">
-            <Volume2 size={20} /> 音效音量
-         </label>
-         <input type="range" className="w-full accent-[#5D4037] bg-gray-200 h-2 rounded-lg appearance-none cursor-pointer" />
-      </div>
-
-      <div className="space-y-3">
-         <label className="flex items-center gap-2 font-bold text-[#5D4037]">
-            <Monitor size={20} /> 画面显示
-         </label>
-         <div className="flex gap-4">
-            <button className="flex-1 py-2 border-2 border-[#5D4037] rounded-lg font-bold bg-[#5D4037] text-white transition-transform active:scale-95">窗口模式</button>
-            <button className="flex-1 py-2 border-2 border-[#E6D7C3] rounded-lg font-bold text-[#8B7355] hover:border-[#5D4037] hover:text-[#5D4037] transition-all active:scale-95">全屏显示</button>
-         </div>
-      </div>
-    </div>
-    
-    <div className="mt-auto text-center text-xs text-[#D4C5B0]">
-       Version 1.0.2-alpha
-    </div>
-  </div>
-);
 
 export default SaveScreen;

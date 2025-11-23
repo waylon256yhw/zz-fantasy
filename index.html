@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;600;700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@400;600;700&family=Quicksand:wght@500;700&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
@@ -15,6 +15,7 @@
             fontFamily: {
               serif: ['"Noto Serif SC"', 'serif'],
               sans: ['"Noto Sans SC"', '"Quicksand"', 'sans-serif'],
+              display: ['"ZCOOL QingKe HuangYou"', '"Noto Sans SC"', 'cursive'],
             },
             colors: {
               'jrpg-bg': '#FFF9F0',      // Warm Cream
@@ -60,6 +61,18 @@
       }
       ::-webkit-scrollbar-thumb:hover {
         background: #FF9FAA;
+      }
+
+      /* Global Film Grain Texture */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 9999;
+        mix-blend-mode: overlay;
+        opacity: 0.6;
       }
     </style>
   <script type="importmap">

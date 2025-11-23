@@ -34,6 +34,31 @@ const WelcomeScreen: React.FC = () => {
          
          {/* Pattern Overlay for texture */}
          <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(#5D4037 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+
+         {/* Floating Magic Particles */}
+         {[...Array(5)].map((_, i) => (
+           <motion.div
+             key={i}
+             className="absolute w-2 h-2 rounded-full bg-gradient-to-br from-[#FFD166] to-[#FF9FAA] blur-[2px]"
+             style={{
+               left: `${15 + i * 18}%`,
+               top: `${20 + (i % 3) * 20}%`,
+               boxShadow: '0 0 20px rgba(255, 209, 102, 0.6)'
+             }}
+             animate={{
+               y: [0, -30, 0],
+               x: [0, Math.sin(i) * 20, 0],
+               opacity: [0.4, 0.8, 0.4],
+               scale: [1, 1.2, 1]
+             }}
+             transition={{
+               duration: 4 + i * 0.5,
+               repeat: Infinity,
+               ease: "easeInOut",
+               delay: i * 0.3
+             }}
+           />
+         ))}
       </div>
 
       {/* Main Content - Scrollable Overlay */}
@@ -70,7 +95,7 @@ const WelcomeScreen: React.FC = () => {
               transition={{ delay: 0.3 }}
               className="flex flex-col gap-4 w-full max-w-xs mx-auto md:mx-0 order-2 md:order-1"
             >
-              <div className="bg-white/60 p-6 rounded-3xl border border-white shadow-xl backdrop-blur-md">
+              <div className="bg-white/60 p-6 rounded-3xl border border-white shadow-xl backdrop-blur-md hover:shadow-[0_0_40px_rgba(255,159,170,0.3)] transition-all duration-500 hover:bg-white/70">
                 <div className="space-y-4">
                   <RPGButton onClick={() => navigate('/create')} icon={<Play size={20} fill="currentColor" />} className="w-full shadow-lg">
                     开始新冒险
@@ -89,7 +114,7 @@ const WelcomeScreen: React.FC = () => {
               transition={{ delay: 0.5 }}
               className="order-1 md:order-2 w-full max-w-xs mx-auto md:max-w-none"
             >
-              <RPGCard className="bg-white/80 rotate-2 hover:rotate-0 transition-transform duration-500 shadow-xl">
+              <RPGCard className="bg-white/80 rotate-2 hover:rotate-0 transition-all duration-500 shadow-xl hover:shadow-[0_0_40px_rgba(255,209,102,0.4)] hover:scale-105">
                 <div className="absolute -top-3 -right-3 bg-jrpg-accent text-white px-3 py-1 rounded-full text-xs font-bold shadow-md">
                   Ver 1.0
                 </div>

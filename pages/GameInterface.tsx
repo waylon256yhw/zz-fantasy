@@ -90,24 +90,38 @@ const GameInterface: React.FC<GameInterfaceProps> = ({ character }) => {
       
       {/* Background Ambience */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-         <img 
-           src={IMAGES.bg.plaza} 
-           alt="Background" 
+         <motion.img
+           src={IMAGES.bg.plaza}
+           alt="Background"
            className="absolute inset-0 w-full h-full object-cover opacity-100"
+           animate={{
+             scale: [1, 1.05, 1],
+             x: [0, -10, 0],
+             y: [0, -5, 0]
+           }}
+           transition={{
+             duration: 30,
+             repeat: Infinity,
+             ease: "easeInOut"
+           }}
          />
          <div className="absolute inset-0 bg-[#FFF9F0]/40 backdrop-blur-[1px]" />
          <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-yellow-200/20 rounded-full blur-[120px] mix-blend-overlay" />
       </div>
 
       {/* MOBILE: Side Toggle for Character Card */}
-      <motion.button 
+      <motion.button
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ delay: 0.5 }}
         className="lg:hidden fixed left-0 top-32 z-40 group"
         onClick={() => setShowMobileCharCard(true)}
       >
-        <div className="bg-white/50 hover:bg-white/70 backdrop-blur-md border border-l-0 border-white/50 rounded-r-xl py-3 pl-1.5 pr-1 shadow-sm flex flex-col items-center gap-1 transition-all active:scale-95 active:translate-x-1">
+        <div className="relative bg-white/50 hover:bg-white/70 backdrop-blur-md border border-l-0 border-white/50 rounded-r-xl py-3 pl-1.5 pr-1 shadow-sm flex flex-col items-center gap-1 transition-all active:scale-95 active:translate-x-1">
+            {/* Pulsing Indicator for First-time Users */}
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#FF9FAA] rounded-full animate-ping" />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-[#FF9FAA] rounded-full" />
+
             <span className="[writing-mode:vertical-rl] text-[10px] font-bold text-[#5D4037] tracking-[0.2em] opacity-80 group-hover:opacity-100 transition-opacity">
                 立绘
             </span>
@@ -212,9 +226,20 @@ const GameInterface: React.FC<GameInterfaceProps> = ({ character }) => {
                                 )}
                                 {log.speaker === character.name && (
                                   <>
-                                    <div className="absolute -top-3 -left-3 bg-white text-[#FF9FAA] rounded-full p-1 shadow-sm border border-[#FF9FAA]/20">
+                                    <motion.div
+                                      className="absolute -top-3 -left-3 bg-white text-[#FF9FAA] rounded-full p-1 shadow-sm border border-[#FF9FAA]/20"
+                                      animate={{
+                                        rotate: [0, 360],
+                                        scale: [1, 1.1, 1]
+                                      }}
+                                      transition={{
+                                        duration: 3,
+                                        repeat: Infinity,
+                                        ease: "easeInOut"
+                                      }}
+                                    >
                                         <Star size={12} fill="currentColor" />
-                                    </div>
+                                    </motion.div>
                                     <div className="absolute inset-[1px] rounded-[20px] rounded-tr-sm border border-white/30 pointer-events-none" />
                                   </>
                                 )}
@@ -325,14 +350,26 @@ const GameInterface: React.FC<GameInterfaceProps> = ({ character }) => {
 
 // --- Reusable Character Card View ---
 const CharacterCardView = ({ character, className = "" }: { character: Character, className?: string }) => (
-    <div className={`relative h-full w-full bg-[#2C241F] rounded-[2.5rem] shadow-2xl overflow-hidden border-[6px] border-white ring-1 ring-gray-200 group ${className}`}>
-        
+    <div className={`relative h-full w-full bg-[#2C241F] rounded-[2.5rem] shadow-2xl overflow-hidden border-[6px] border-white ring-1 ring-gray-200 group hover:shadow-[0_0_50px_rgba(255,159,170,0.3)] transition-all duration-500 ${className}`}>
+
         {/* Full Height Character Image - Immersive Style */}
-        <motion.img 
-          src={character.avatarUrl || IMAGES.char.test} 
-          className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105 z-0" 
+        <motion.img
+          src={character.avatarUrl || IMAGES.char.test}
+          className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105 z-0"
           alt="Character"
+          animate={{
+            y: [0, -8, 0],
+            scale: [1, 1.02, 1]
+          }}
+          transition={{
+            duration: 6,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
         />
+
+        {/* Hover Glow Effect */}
+        <div className="absolute inset-0 bg-[#FF9FAA]/0 group-hover:bg-[#FF9FAA]/10 transition-all duration-500 rounded-[2.5rem] z-[5]" />
         
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#2C241F] via-[#2C241F]/30 to-transparent opacity-90 z-10" />
