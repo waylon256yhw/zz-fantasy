@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { RPGCard, RPGInput } from '../components/RPGComponents';
 import { ClassType, CharacterStats, Character } from '../types';
-import { INITIAL_STATS, CLASS_DESCRIPTIONS, CLASS_LABELS, IMAGES, getCharacterImage } from '../constants';
+import { INITIAL_STATS, CLASS_DESCRIPTIONS, CLASS_LABELS, IMAGES, getCharacterImage, getStartingInventory } from '../constants';
 import { ChevronLeft, Sparkles, CheckCircle, Wand2, Palette, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
+import { initializeHpMp } from '../src/utils/hpMpSystem';
 
 interface CharacterCreationProps {
   onComplete: (char: Character) => void;
@@ -25,15 +26,24 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
 
   const handleStart = () => {
     if (!name) return;
+
+    // Initialize HP/MP based on starting level
+    const hpMpValues = initializeHpMp(1);
+
     const newChar: Character = {
       name,
       classType: selectedClass,
       gender,
       stats,
       level: 1,
+      exp: 0,
       gold: 100,
       avatarUrl: getCharacterImage(selectedClass, gender),
-      appearance
+      appearance,
+      inventory: getStartingInventory(selectedClass),
+      activeQuests: [],
+      completedQuests: [],
+      ...hpMpValues, // Add HP/MP
     };
     onComplete(newChar);
     navigate('/game');
@@ -129,7 +139,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
       <div className="space-y-4 lg:space-y-6 flex-1">
         <RPGInput 
           label="冒险者姓名" 
-          placeholder="例如：莱莎、克劳德..." 
+          placeholder="请输入姓名" 
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="py-2.5 lg:py-3"
@@ -223,10 +233,6 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
           <span>开启旅程</span>
         </button>
       </div>
-      
-      <div className="text-center shrink-0">
-        <span className="text-[10px] text-jrpg-text/40 font-bold uppercase tracking-widest bg-white/50 px-3 py-1 rounded-full">World Seed: {Math.floor(Math.random() * 999999)}</span>
-      </div>
     </div>
   );
 
@@ -277,7 +283,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
         </div>
 
         {/* --- MOBILE LAYOUT (Carousel/Stepper) --- */}
-        <div className="lg:hidden flex-1 flex flex-col relative overflow-hidden rounded-3xl bg-white/30 backdrop-blur-sm border border-white/50 shadow-inner">
+        <div className="lg:hidden flex-1 min-h-0 flex flex-col relative overflow-hidden rounded-3xl bg-white/30 backdrop-blur-sm border border-white/50 shadow-inner">
            <AnimatePresence mode="wait">
              <motion.div
                 key={mobileStep}
@@ -285,7 +291,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -50 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-32" 
+                className="flex-1 min-h-0 p-3 sm:p-4 pb-24" 
              >
                 {/* Step 0: Form / Basic Info */}
                 {mobileStep === 0 && renderFormSection()}
@@ -297,11 +303,11 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
            </AnimatePresence>
 
            {/* Mobile Bottom Navigation Bar */}
-           <div className="absolute bottom-0 left-0 right-0 bg-white/50 backdrop-blur-md border-t border-white/40 p-4 pb-8 flex justify-between items-center z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+           <div className="absolute bottom-0 left-0 right-0 bg-white/50 backdrop-blur-md border-t border-white/40 p-3 pb-5 flex justify-between items-center z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
               <button 
                 onClick={prevStep} 
                 disabled={mobileStep === 0}
-                className="w-12 h-12 rounded-full flex items-center justify-center bg-[#F7F2E8]/80 text-[#5D4037] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#E6D7C3] transition-colors shadow-sm"
+                className="w-11 h-11 rounded-full flex items-center justify-center bg-[#F7F2E8]/80 text-[#5D4037] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#E6D7C3] transition-colors shadow-sm"
               >
                 <ArrowLeft size={20} />
               </button>
@@ -322,7 +328,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
               {mobileStep < 2 ? (
                 <button 
                   onClick={nextStep}
-                  className="px-6 py-3 rounded-xl bg-[#5D4037] text-white font-bold flex items-center gap-2 shadow-lg active:scale-95 transition-all"
+                  className="px-5 py-2.5 rounded-xl bg-[#5D4037] text-white font-bold text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-all"
                 >
                   <span>下一步</span>
                   <ArrowRight size={18} />

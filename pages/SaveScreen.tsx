@@ -3,22 +3,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Character, ClassType, CharacterStats } from '../types';
 import { CLASS_LABELS, IMAGES, INITIAL_STATS, getCharacterImage } from '../constants';
-import { ChevronLeft, Save, Download, Trash2, Clock, MapPin, CheckCircle, AlertCircle, X, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, Save, Download, Trash2, Clock, MapPin, CheckCircle, AlertCircle, X, ArrowLeft, Coins, Trophy, Target, Gem } from 'lucide-react';
 import { RPGButton } from '../components/RPGComponents';
+import { useGame, SavePreview } from '../src/contexts/GameContext';
+import { DZMMService } from '../src/services/dzmmService';
 
-// Initial Mock Data
-const INITIAL_SAVES = [
-  // Ryza -> Alchemist (Mage visuals) Female
-  { id: 1, name: '莱莎', classType: ClassType.ALCHEMIST, level: 12, location: '王都阿斯拉', time: '04:23:12', date: '2023/10/24', empty: false, avatar: getCharacterImage(ClassType.ALCHEMIST, 'Female') },
-  // Cloud -> Knight (Warrior visuals) Male
-  { id: 2, name: '克劳德', classType: ClassType.KNIGHT, level: 35, location: '古代遗迹深层', time: '12:45:00', date: '2023/10/20', empty: false, avatar: getCharacterImage(ClassType.KNIGHT, 'Male') },
-  { id: 3, empty: true },
-  { id: 4, empty: true },
-];
-
-interface SaveScreenProps {
-  currentCharacter: Character | null;
-  onLoadCharacter: (char: Character) => void;
+interface SaveSlot {
+  id: number;
+  empty: boolean;
+  name?: string;
+  classType?: ClassType;
+  level?: number;
+  gold?: number;
+  exp?: number;
+  location?: string;
+  time?: string;
+  date?: string;
+  avatar?: string;
+  messageCount?: number;
+  questsCompleted?: number;
+  questsActive?: number;
+  legendaryPurchased?: number;
 }
 
 interface Toast {
@@ -27,7 +32,10 @@ interface Toast {
   type: 'success' | 'error' | 'info';
 }
 
-const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharacter }) => {
+const SAVE_SLOTS = [1, 2, 3];
+
+const SaveScreen: React.FC = () => {
+  const { character, saveGame, loadGame, getSavePreview } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
   const fromGame = location.state?.fromGame;
@@ -35,8 +43,49 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
   // State
   const [activeTab, setActiveTab] = useState<'SAVE' | 'LOAD' | 'SETTINGS'>(fromGame ? 'SAVE' : 'LOAD');
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
-  const [saves, setSaves] = useState(INITIAL_SAVES);
+  const [saves, setSaves] = useState<SaveSlot[]>([]);
   const [notification, setNotification] = useState<Toast | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load save previews on mount
+  useEffect(() => {
+    loadSavePreviews();
+  }, []);
+
+  const loadSavePreviews = async () => {
+    setLoading(true);
+    const loadedSlots: SaveSlot[] = [];
+
+    for (const slotNumber of SAVE_SLOTS) {
+      const preview = await getSavePreview(slotNumber);
+      if (preview) {
+        loadedSlots.push({
+          id: slotNumber,
+          empty: false,
+          name: preview.characterName,
+          classType: preview.classType as ClassType,
+          level: preview.level,
+          gold: preview.gold,
+          exp: preview.exp,
+          location: preview.location,
+          date: preview.timestamp,
+          messageCount: preview.messageCount,
+          avatar: preview.avatarUrl,
+          questsCompleted: preview.questsCompleted,
+          questsActive: preview.questsActive,
+          legendaryPurchased: preview.legendaryPurchased,
+        });
+      } else {
+        loadedSlots.push({
+          id: slotNumber,
+          empty: true,
+        });
+      }
+    }
+
+    setSaves(loadedSlots);
+    setLoading(false);
+  };
 
   // Tabs configuration
   const tabs = [
@@ -67,75 +116,63 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
     }, 3000);
   };
 
-  const handleSave = () => {
-    if (!selectedSlot || !currentCharacter) return;
+  const handleSave = async () => {
+    if (!selectedSlot || !character) return;
 
-    // Simulate saving delay
-    const newSaves = saves.map(slot => {
-      if (slot.id === selectedSlot) {
-        return {
-          ...slot,
-          name: currentCharacter.name,
-          classType: currentCharacter.classType,
-          level: currentCharacter.level,
-          location: '当前位置', // In a real app, pass this via props
-          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-          date: new Date().toLocaleDateString(),
-          empty: false,
-          avatar: currentCharacter.avatarUrl || getCharacterImage(currentCharacter.classType, currentCharacter.gender)
-        };
-      }
-      return slot;
-    });
+    try {
+      await saveGame(selectedSlot);
+      showToast(`进度已保存至 档案 ${selectedSlot}`, 'success');
 
-    setSaves(newSaves);
-    showToast(`进度已保存至 档案 ${selectedSlot}`, 'success');
+      // Reload previews to reflect new save
+      await loadSavePreviews();
+    } catch (error) {
+      console.error('[SaveScreen] Save failed:', error);
+      showToast('保存失败，请重试', 'error');
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedSlot) return;
-    
-    const newSaves = saves.map(slot => {
-      if (slot.id === selectedSlot) {
-        return { id: slot.id, empty: true };
-      }
-      return slot;
-    });
 
-    setSaves(newSaves as any); // Cast for simplicity in this mockup
-    showToast(`档案 ${selectedSlot} 已删除`, 'info');
-    // On mobile, maybe close the panel after delete? Or stay to show it's empty.
-    // staying is better UX usually.
+    if (!confirm(`确定删除档案 ${selectedSlot}？`)) return;
+
+    try {
+      const key = `aetheria_save_slot_${selectedSlot}`;
+      await DZMMService.kvDelete(key);
+      showToast(`档案 ${selectedSlot} 已删除`, 'info');
+
+      // Reload previews
+      await loadSavePreviews();
+      setSelectedSlot(null);
+    } catch (error) {
+      console.error('[SaveScreen] Delete failed:', error);
+      showToast('删除失败，请重试', 'error');
+    }
   };
 
-  const handleLoad = () => {
+  const handleLoad = async () => {
     if (!selectedSlot) return;
     const slot = saves.find(s => s.id === selectedSlot);
     if (!slot || slot.empty) {
-      showToast("无法读取空白档案", "error");
+      showToast('无法读取空白档案', 'error');
       return;
     }
-    
-    showToast("正在读取世界线...", "success");
-    
-    // Construct a full Character object from the save slot
-    // NOTE: In a real app, the save slot would contain full JSON data. 
-    // Here we reconstruct minimal data for the mock.
-    const loadedCharacter: Character = {
-        name: slot.name!,
-        classType: slot.classType!,
-        gender: 'Female', // Default, as mock save doesn't have it
-        stats: INITIAL_STATS[slot.classType!] || { STR: 5, DEX: 5, INT: 5, CHA: 5, LUCK: 5 },
-        level: slot.level!,
-        gold: 1250, // Mock gold
-        avatarUrl: (slot as any).avatar || getCharacterImage(slot.classType!, 'Female'),
-        appearance: "A weary traveler returned from the archives of time."
-    };
 
-    setTimeout(() => {
-      onLoadCharacter(loadedCharacter);
-      navigate('/game');
-    }, 1000);
+    showToast('正在读取世界线...', 'success');
+
+    try {
+      const success = await loadGame(selectedSlot);
+      if (success) {
+        setTimeout(() => {
+          navigate('/game');
+        }, 500);
+      } else {
+        showToast('读取失败：存档不存在', 'error');
+      }
+    } catch (error) {
+      console.error('[SaveScreen] Load failed:', error);
+      showToast('读取失败，请重试', 'error');
+    }
   };
 
   return (
@@ -224,12 +261,17 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
                               <h3 className="font-bold text-[#5D4037] text-lg truncate">{save.name}</h3>
                               <span className="text-xs font-bold text-[#8B7355] shrink-0">Lv.{(save as any).level}</span>
                             </div>
-                            <div className="flex flex-col gap-0.5 text-xs text-[#9C8C74]">
-                               <span className="truncate">{(save as any).location}</span>
-                               <span className="opacity-70">{(save as any).date}</span>
-                            </div>
-                         </div>
-                      </div>
+                           <div className="flex flex-col gap-0.5 text-xs text-[#9C8C74]">
+                              <span className="truncate">{(save as any).location}</span>
+                              <span className="opacity-70">{(save as any).date}</span>
+                              {(save as any).legendaryPurchased !== undefined && (
+                                <span className="text-[10px] text-[#C27B28] font-bold">
+                                  传奇宝物 {(save as any).legendaryPurchased}/16
+                                </span>
+                              )}
+                           </div>
+                        </div>
+                     </div>
                     ) : (
                       <div className="h-16 pl-6 pt-4 flex items-center text-[#D4C5B0] font-bold text-sm">
                          {activeTab === 'SAVE' ? '创建一个新存档...' : '---- 空白页 ----'}
@@ -243,17 +285,17 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
 
         {/* --- RIGHT PAGE (Details & Settings) --- */}
         {/* On Mobile: Fixed overlay that slides in. On Desktop: Static column. */}
-        <div 
+        <div
           className={`
             fixed inset-0 z-50 md:static md:z-auto
-            w-full md:w-1/2 h-full 
-            bg-[#FFFBF0] p-6 md:p-12 flex flex-col
+            w-full md:w-1/2 h-full
+            bg-[#FFFBF0] p-4 pb-6 md:p-12 flex flex-col
             transition-transform duration-300 ease-in-out
             ${showDetailPanel ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
           `}
         >
            {/* Mobile Header for Right Page */}
-           <div className="md:hidden flex items-center mb-6 pb-4 border-b border-[#E6D7C3]">
+           <div className="md:hidden flex items-center mb-4 pb-3 border-b border-[#E6D7C3]">
               <button onClick={closeDetailPanel} className="p-2 -ml-2 text-[#5D4037]">
                  <ArrowLeft size={24} />
               </button>
@@ -267,15 +309,15 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
 
            <AnimatePresence mode="wait">
                {selectedSlot ? (
-                 <motion.div 
+                 <motion.div
                    key="details"
                    initial={{ opacity: 0, x: 20 }}
                    animate={{ opacity: 1, x: 0 }}
                    exit={{ opacity: 0, x: -20 }}
                    className="h-full flex flex-col"
                  >
-                    {/* Detail View */}
-                    <div className="flex-1 border-4 border-double border-[#E6D7C3] rounded-xl p-6 relative bg-white/50">
+                    {/* Detail View with scroll container */}
+                    <div className="flex-1 border-4 border-double border-[#E6D7C3] rounded-xl p-4 md:p-6 relative bg-white/50 overflow-y-auto custom-scrollbar">
                        <h2 className="hidden md:flex text-2xl font-serif font-bold text-[#5D4037] mb-6 items-center gap-3">
                          <span className="w-8 h-8 rounded-full bg-[#5D4037] text-[#FFFBF0] flex items-center justify-center text-sm font-sans">{selectedSlot}</span>
                          档案详情
@@ -297,29 +339,87 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
 
                          const dataToShow = slotData as any;
                          return (
-                           <div className="space-y-6">
-                              <div className="flex gap-6 items-center border-b border-[#E6D7C3] pb-6">
-                                 <div className="w-24 h-24 bg-gray-200 rounded-xl shadow-inner overflow-hidden border-2 border-white shrink-0">
+                           <div className="space-y-4 md:space-y-6 pb-4">
+                              <div className="flex gap-4 md:gap-6 items-center border-b border-[#E6D7C3] pb-4 md:pb-6">
+                                 <div className="w-16 h-16 md:w-24 md:h-24 bg-gray-200 rounded-xl shadow-inner overflow-hidden border-2 border-white shrink-0">
                                     <img src={dataToShow.avatar} alt="Avatar" className="w-full h-full object-cover" />
                                  </div>
                                  <div className="min-w-0">
-                                   <div className="text-2xl md:text-3xl font-bold text-[#5D4037] truncate">{dataToShow.name}</div>
-                                   <div className="text-[#FF9FAA] font-bold text-lg">{CLASS_LABELS[dataToShow.classType as ClassType]} <span className="text-[#8B7355] text-sm ml-2">Lv.{dataToShow.level}</span></div>
+                                   <div className="text-xl md:text-3xl font-bold text-[#5D4037] truncate">{dataToShow.name}</div>
+                                   <div className="text-[#FF9FAA] font-bold text-base md:text-lg">{CLASS_LABELS[dataToShow.classType as ClassType]} <span className="text-[#8B7355] text-sm ml-2">Lv.{dataToShow.level}</span></div>
                                  </div>
                               </div>
 
-                              <div className="space-y-4 bg-[#FFF9F0] p-4 rounded-xl">
-                                 <div className="flex items-center gap-3 text-[#5D4037]">
-                                    <MapPin size={20} className="text-[#FF9FAA]" />
-                                    <span className="font-bold">{dataToShow.location}</span>
+                              <div className="space-y-3 bg-[#FFF9F0] p-3 md:p-4 rounded-xl text-sm">
+                                 <div className="flex items-center gap-2 text-[#5D4037]">
+                                    <MapPin size={18} className="text-[#FF9FAA] shrink-0" />
+                                    <span className="font-bold truncate">{dataToShow.location}</span>
                                  </div>
-                                 <div className="flex items-center gap-3 text-[#5D4037]">
-                                    <Clock size={20} className="text-[#FF9FAA]" />
-                                    <span className="font-bold font-mono text-lg">{dataToShow.time}</span>
+                                 <div className="flex items-center gap-2 text-[#5D4037]">
+                                    <Clock size={18} className="text-[#FF9FAA] shrink-0" />
+                                    <span className="font-bold text-xs md:text-sm">{dataToShow.date}</span>
                                  </div>
                               </div>
 
-                              <div className="mt-auto text-sm text-[#8B7355] italic text-center opacity-70">
+                              {/* Stats Grid - Compact for mobile */}
+                              <div className="grid grid-cols-2 gap-2 md:gap-3">
+                                 <div className="bg-white p-2.5 md:p-3 rounded-lg md:rounded-xl border-2 border-[#FFD166]/30 shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                       <Coins size={14} className="text-[#FFD166]" />
+                                       <span className="text-[10px] md:text-xs font-bold text-[#8B7355] uppercase">Gold</span>
+                                    </div>
+                                    <div className="text-lg md:text-2xl font-black text-[#5D4037]">
+                                       {dataToShow.gold || 0}
+                                       <span className="text-[10px] md:text-xs text-[#8B7355] ml-1">G</span>
+                                    </div>
+                                 </div>
+
+                                 <div className="bg-white p-2.5 md:p-3 rounded-lg md:rounded-xl border-2 border-[#89CFF0]/30 shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                       <Trophy size={14} className="text-[#89CFF0]" />
+                                       <span className="text-[10px] md:text-xs font-bold text-[#8B7355] uppercase">EXP</span>
+                                    </div>
+                                    <div className="text-lg md:text-2xl font-black text-[#5D4037]">
+                                       {dataToShow.exp || 0}
+                                       <span className="text-[10px] md:text-xs text-[#8B7355] ml-1">/ 100</span>
+                                    </div>
+                                 </div>
+
+                                 <div className="bg-white p-2.5 md:p-3 rounded-lg md:rounded-xl border-2 border-[#B5EAD7]/30 shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                       <CheckCircle size={14} className="text-green-500" />
+                                       <span className="text-[10px] md:text-xs font-bold text-[#8B7355] uppercase">完成</span>
+                                    </div>
+                                    <div className="text-lg md:text-2xl font-black text-[#5D4037]">
+                                       {dataToShow.questsCompleted || 0}
+                                       <span className="text-[10px] md:text-xs text-[#8B7355] ml-1">任务</span>
+                                    </div>
+                                 </div>
+
+                                 <div className="bg-white p-2.5 md:p-3 rounded-lg md:rounded-xl border-2 border-[#E6D7C3] shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                       <Target size={14} className="text-[#FF9FAA]" />
+                                       <span className="text-[10px] md:text-xs font-bold text-[#8B7355] uppercase">进行中</span>
+                                    </div>
+                                    <div className="text-lg md:text-2xl font-black text-[#5D4037]">
+                                       {dataToShow.questsActive || 0}
+                                       <span className="text-[10px] md:text-xs text-[#8B7355] ml-1">任务</span>
+                                    </div>
+                                 </div>
+                              </div>
+
+                              <div className="bg-white p-2.5 md:p-3 rounded-lg md:rounded-xl border-2 border-[#E6D7C3] shadow-sm">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                   <Gem size={14} className="text-[#C27B28]" />
+                                   <span className="text-[10px] md:text-xs font-bold text-[#8B7355] uppercase">传奇宝物</span>
+                                </div>
+                                <div className="text-lg md:text-2xl font-black text-[#5D4037]">
+                                   {(dataToShow as any).legendaryPurchased || 0}
+                                   <span className="text-[10px] md:text-xs text-[#8B7355] ml-1">/ 16</span>
+                                </div>
+                              </div>
+
+                              <div className="hidden md:block text-sm text-[#8B7355] italic text-center opacity-70 col-span-2">
                                  "冒险的足迹，是通往未来的路标。"
                               </div>
                            </div>
@@ -327,24 +427,24 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
                        })()}
                     </div>
 
-                    {/* Actions */}
-                    <div className="mt-8 flex gap-4">
+                    {/* Actions - Fixed spacing */}
+                    <div className="mt-4 md:mt-8 flex gap-3 md:gap-4 flex-none">
                        {activeTab === 'SAVE' ? (
-                         <RPGButton onClick={handleSave} icon={<Save size={20} />} className="flex-1">
+                         <RPGButton onClick={handleSave} icon={<Save size={18} />} className="flex-1 text-sm md:text-base py-2.5 md:py-3">
                            覆盖保存
                          </RPGButton>
                        ) : (
-                         <RPGButton onClick={handleLoad} icon={<Download size={20} />} className="flex-1" disabled={!saves.find(s => s.id === selectedSlot && !s.empty)}>
+                         <RPGButton onClick={handleLoad} icon={<Download size={18} />} className="flex-1 text-sm md:text-base py-2.5 md:py-3" disabled={!saves.find(s => s.id === selectedSlot && !s.empty)}>
                            读取进度
                          </RPGButton>
                        )}
-                       
-                       <button 
+
+                       <button
                         onClick={handleDelete}
                         disabled={!saves.find(s => s.id === selectedSlot && !s.empty)}
-                        className="p-3 text-[#E6D7C3] hover:text-red-400 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#E6D7C3]"
+                        className="p-2.5 md:p-3 text-[#E6D7C3] hover:text-red-400 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#E6D7C3]"
                        >
-                          <Trash2 size={24} />
+                          <Trash2 size={20} className="md:w-6 md:h-6" />
                        </button>
                     </div>
                  </motion.div>

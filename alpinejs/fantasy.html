@@ -1,0 +1,4815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>奇幻世界RPG - 优化版</title>
+</head>
+
+<!--
+===============================================================================
+🎮 奇幻世界RPG - 完整优化版
+
+📝 更新日志：
+v2.0 - 2025-11-08
+- ✅ 修复：AI响应卡死问题（限制历史消息数量）
+- ✅ 修复：调试信息泄露问题（添加文本清洗）
+- ✅ 新增：完整的菜单系统（存档/背包/装备/画廊）
+- ✅ 新增：多存档槽位支持（3个槽位）
+- ✅ 新增：模型选择功能（6个模型可选）
+- ✅ 新增：角色性别和外观选择
+- ✅ 优化：道具交互（点击显示详情，确认后使用）
+- ✅ 优化：AI文风（强制分段，提供示例）
+- ✅ 新增：绘图API集成（生成角色立绘）
+- ✅ 新增：画廊系统（保存和管理生成的图片）
+
+🎯 核心改进：
+1. 历史消息限制：只读取最近15条，避免token超限
+2. 系统提示词优化：简化格式，添加文风要求
+3. 错误处理增强：所有API调用都有try-catch
+4. UI/UX优化：菜单系统、模态框、确认对话框
+5. 绘图功能：AI生成提示词 + 绘图API + 画廊管理
+
+===============================================================================
+-->
+
+<body x-data="">
+  <!-- 加载中 -->
+  <div x-show="$store.rpg.loading" class="loading-screen">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <p x-text="$store.rpg.loadingText || '正在加载奇幻世界...'"></p>
+    </div>
+  </div>
+
+  <!-- 角色创建/主菜单 -->
+  <div x-show="!$store.rpg.gameStarted && !$store.rpg.loading" x-transition class="char-creation">
+    <div class="creation-card">
+      <h1>⚔️ 奇幻世界RPG</h1>
+
+      <!-- ========== 主菜单选项 ========== -->
+      <div x-show="!$store.rpg.showCharCreation && !$store.rpg.showLoadGame" class="main-menu">
+        <button @click="$store.rpg.showCharCreation = true" class="menu-option">
+          🎮 新游戏
+        </button>
+        <button @click="$store.rpg.showLoadGame = true" class="menu-option">
+          💾 继续游戏
+        </button>
+
+        <!-- 正文模型选择 -->
+        <div class="model-selection">
+          <label>正文模型（生成故事）：</label>
+          <select x-model="$store.rpg.storyModel">
+    <option value="nalang-turbo-0826">Turbo (快速)</option>
+
+    <option value="nalang-medium-0826">Medium (平衡)</option>
+
+    <option value="nalang-max-0826">Max (强大)</option>
+
+    <option value="nalang-xl-0826">XL (稳定)</option>
+
+    <option value="nalang-max-0826-16k">Max-16K (快速强大)</option>
+
+    <option value="nalang-xl-0826-16k">XL-16K (快速稳定)</option>
+          </select>
+        </div>
+
+        <!-- 响应模型选择 -->
+        <div class="model-selection">
+          <label>响应模型（处理数据）：</label>
+          <select x-model="$store.rpg.responseModel">
+    <option value="nalang-turbo-0826">Turbo (快速)</option>
+
+    <option value="nalang-medium-0826">Medium (平衡)</option>
+
+    <option value="nalang-max-0826">Max (强大)</option>
+
+    <option value="nalang-xl-0826">XL (稳定)</option>
+
+    <option value="nalang-max-0826-16k">Max-16K (快速强大)</option>
+
+    <option value="nalang-xl-0826-16k">XL-16K (快速稳定)</option>
+          </select>
+          <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 5px;">
+            响应模型用于解析正文并更新游戏数据，建议使用Medium/XL以确保数据准确性
+          </small>
+        </div>
+      </div>
+
+      <!-- ========== 读取存档界面 ========== -->
+      <div x-show="$store.rpg.showLoadGame" class="load-game-screen">
+        <h2>💾 读取存档</h2>
+        <div class="save-slots">
+          <template x-for="slot in [1, 2, 3]" :key="slot">
+            <div class="save-slot" @click="$store.rpg.loadGame(slot)">
+              <template x-if="$store.rpg.saveSlots[slot]">
+                <div class="save-info">
+                  <div class="save-header">
+                    <span class="save-name" x-text="$store.rpg.saveSlots[slot].playerName"></span>
+                    <span class="save-level" x-text="`Lv.${$store.rpg.saveSlots[slot].level}`"></span>
+                  </div>
+                  <div class="save-details">
+                    <span x-text="$store.rpg.saveSlots[slot].className"></span>
+                    <span x-text="$store.rpg.saveSlots[slot].location"></span>
+                  </div>
+                  <div class="save-time" x-text="$store.rpg.saveSlots[slot].timestamp"></div>
+                </div>
+              </template>
+              <template x-if="!$store.rpg.saveSlots[slot]">
+                <div class="empty-slot">
+                  <span>空存档</span>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+        <button @click="$store.rpg.showLoadGame = false" class="back-btn">返回</button>
+      </div>
+
+      <!-- ========== 角色创建界面 ========== -->
+      <div x-show="$store.rpg.showCharCreation" class="char-creation-form">
+        <h2>创建角色</h2>
+
+        <div class="form-group">
+          <label>角色名称：</label>
+          <input x-model="$store.rpg.playerName" placeholder="输入你的名字" maxlength="12" />
+        </div>
+
+        <div class="form-group">
+          <label>性别：</label>
+          <div class="gender-selection">
+            <button
+              class="gender-btn"
+              :class="{ 'selected': $store.rpg.playerGender === 'male' }"
+              @click="$store.rpg.playerGender = 'male'">
+              ♂️ 男性
+            </button>
+            <button
+              class="gender-btn"
+              :class="{ 'selected': $store.rpg.playerGender === 'female' }"
+              @click="$store.rpg.playerGender = 'female'">
+              ♀️ 女性
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>外观特征：</label>
+          <input x-model="$store.rpg.playerAppearance" placeholder="例如：金色长发，蓝色眼睛" maxlength="50" />
+          <small>可选，用于生成角色立绘</small>
+        </div>
+
+        <div class="form-group">
+          <label>选择职业：</label>
+          <div class="class-selection">
+            <template x-for="cls in $store.rpg.classes" :key="cls.id">
+              <div class="class-card" :class="{ 'selected': $store.rpg.selectedClass === cls.id }"
+                @click="$store.rpg.selectedClass = cls.id">
+                <div class="class-icon" x-text="cls.icon"></div>
+                <div class="class-name" x-text="cls.name"></div>
+                <div class="class-desc" x-text="cls.desc"></div>
+                <div class="class-stats">
+                  <span>❤️ <span x-text="cls.hp"></span></span>
+                  <span>✨ <span x-text="cls.mp"></span></span>
+                  <span>⚔️ <span x-text="cls.atk"></span></span>
+                  <span>🛡️ <span x-text="cls.def"></span></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <button
+          @click="$store.rpg.startGame()"
+          :disabled="!$store.rpg.playerName || !$store.rpg.selectedClass"
+          class="start-btn">
+          🎮 开始冒险
+        </button>
+
+        <button @click="$store.rpg.showCharCreation = false" class="back-btn">返回</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 游戏主界面 -->
+  <div x-show="$store.rpg.gameStarted && !$store.rpg.loading" x-transition class="game-screen">
+
+    <!-- 菜单按钮 -->
+    <button @click="$store.rpg.menuOpen = true" class="menu-btn">
+      ☰ 菜单
+    </button>
+
+    <!-- 生成立绘按钮 -->
+    <button @click="$store.rpg.showArtGenerator = true" class="art-btn">
+      📷 生成立绘
+    </button>
+
+<!-- 冒险者公会按钮（新增）-->
+<button @click="$store.rpg.showGuildPanel = true" class="guild-btn">
+  🏛️ 公会
+</button>
+
+    <!-- 顶部状态栏 -->
+    <div class="status-bar">
+      <div class="player-info">
+        <div class="player-name" x-text="$store.rpg.player.name"></div>
+        <div class="player-class" x-text="$store.rpg.player.className"></div>
+        <div class="player-level">Lv.<span x-text="$store.rpg.player.level"></span></div>
+      </div>
+
+      <div class="player-stats">
+        <div class="stat-bar">
+          <span class="stat-label">❤️ HP</span>
+          <div class="bar">
+            <div class="bar-fill hp" :style="`width: ${($store.rpg.player.hp / $store.rpg.player.maxHp) * 100}%`"></div>
+          </div>
+          <span class="stat-value" x-text="`${$store.rpg.player.hp}/${$store.rpg.player.maxHp}`"></span>
+        </div>
+
+        <div class="stat-bar">
+          <span class="stat-label">✨ MP</span>
+          <div class="bar">
+            <div class="bar-fill mp" :style="`width: ${($store.rpg.player.mp / $store.rpg.player.maxMp) * 100}%`"></div>
+          </div>
+          <span class="stat-value" x-text="`${$store.rpg.player.mp}/${$store.rpg.player.maxMp}`"></span>
+        </div>
+
+        <div class="stat-bar">
+          <span class="stat-label">⭐ EXP</span>
+          <div class="bar">
+            <div class="bar-fill exp" :style="`width: ${($store.rpg.player.exp / $store.rpg.player.expToNext) * 100}%`">
+            </div>
+          </div>
+          <span class="stat-value" x-text="`${$store.rpg.player.exp}/${$store.rpg.player.expToNext}`"></span>
+        </div>
+      </div>
+
+      <div class="player-resources">
+        <div class="resource">💰 <span x-text="$store.rpg.player.gold"></span></div>
+        <div class="resource">📍 <span x-text="$store.rpg.player.location"></span></div>
+      </div>
+    </div>
+
+    <!-- 主要内容区 -->
+    <div class="main-content">
+
+      <!-- 左侧：场景显示 -->
+      <div class="scene-area">
+        <div class="scene-image" :style="`background-image: url('${$store.rpg.currentScene}')`">
+          <!-- 战斗时显示敌人 -->
+          <div x-show="$store.rpg.inBattle" class="enemy-display">
+            <div class="enemy-image">
+              <span class="enemy-icon" x-text="$store.rpg.currentEnemy?.icon || '👹'"></span>
+            </div>
+            <div class="enemy-info">
+              <div class="enemy-name" x-text="$store.rpg.currentEnemy?.name"></div>
+              <div class="enemy-hp-bar">
+                <div class="bar">
+                  <div class="bar-fill hp"
+                    :style="`width: ${($store.rpg.currentEnemy?.hp / $store.rpg.currentEnemy?.maxHp) * 100}%`"></div>
+                </div>
+                <span x-text="`${$store.rpg.currentEnemy?.hp}/${$store.rpg.currentEnemy?.maxHp}`"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 剧情文本框 -->
+        <div class="story-box">
+          <div class="story-content" x-html="$store.rpg.storyText"></div>
+        </div>
+      </div>
+
+      <!-- 右侧：操作面板 -->
+      <div class="control-panel">
+
+        <!-- 战 斗中 -->
+        <div x-show="$store.rpg.inBattle" class="battle-actions">
+          <h3>⚔️ 战斗指令</h3>
+          <button @click="$store.rpg.attack()" :disabled="$store.rpg.actionLocked" class="action-btn">
+            ⚔️ 普通攻击
+          </button>
+
+          <div class="skills-list">
+            <template x-for="skill in $store.rpg.player.skills" :key="skill.id">
+              <button
+                @click="$store.rpg.useSkill(skill)"
+                :disabled="$store.rpg.actionLocked || $store.rpg.player.mp < skill.cost"
+                class="skill-btn">
+                <span x-text="skill.icon"></span>
+                <span x-text="skill.name"></span>
+                <span class="skill-cost" x-text="`${skill.cost}MP`"></span>
+              </button>
+            </template>
+          </div>
+
+          <button @click="$store.rpg.flee()" :disabled="$store.rpg.actionLocked" class="action-btn flee">
+            🏃 逃跑
+          </button>
+        </div>
+
+        <!-- 探索中 -->
+        <div x-show="!$store.rpg.inBattle" class="explore-actions">
+          <h3>🗺️ 探索指令</h3>
+
+          <div class="location-select">
+            <label>前往：</label>
+            <select x-model="$store.rpg.targetLocation">
+              <template x-for="loc in $store.rpg.availableLocations" :key="loc.id">
+                <option :value="loc.id" x-text="`${loc.icon} ${loc.name}`"></option>
+              </template>
+            </select>
+            <button @click="$store.rpg.move()" :disabled="$store.rpg.actionLocked">
+              🚶 移动
+            </button>
+          </div>
+
+          <button @click="$store.rpg.explore()" :disabled="$store.rpg.actionLocked" class="action-btn">
+            🔍 探索当前区域
+          </button>
+
+          <button @click="$store.rpg.rest()" :disabled="$store.rpg.actionLocked" class="action-btn">
+            😴 休息恢复
+          </button>
+
+          <button @click="$store.rpg.talk()" :disabled="$store.rpg.actionLocked" class="action-btn">
+            💬 与NPC对话
+          </button>
+        </div>
+
+        <!-- 自由输入 -->
+        <div class="free-input">
+          <input
+            x-model="$store.rpg.playerInput"
+            placeholder="输入自定义行动..."
+            :disabled="$store.rpg.actionLocked"
+            @keydown.enter="$store.rpg.customAction()" />
+          <button @click="$store.rpg.customAction()" :disabled="$store.rpg.actionLocked">
+            ✉️ 发送
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 菜单覆盖层 -->
+  <div x-show="$store.rpg.menuOpen" x-transition class="menu-overlay" @click.self="$store.rpg.menuOpen = false">
+    <div class="menu-panel">
+      <h2>游戏菜单</h2>
+
+      <div class="menu-tabs">
+        <button
+          class="menu-tab"
+          :class="{ 'active': $store.rpg.menuTab === 'save' }"
+          @click="$store.rpg.menuTab = 'save'">
+          💾 存档
+        </button>
+        <button
+          class="menu-tab"
+          :class="{ 'active': $store.rpg.menuTab === 'bag' }"
+          @click="$store.rpg.menuTab = 'bag'">
+          🎒 背包
+        </button>
+        <button
+          class="menu-tab"
+          :class="{ 'active': $store.rpg.menuTab === 'equip' }"
+          @click="$store.rpg.menuTab = 'equip'">
+          ⚔️ 装备
+        </button>
+        <button
+          class="menu-tab"
+          :class="{ 'active': $store.rpg.menuTab === 'status' }"
+          @click="$store.rpg.menuTab = 'status'">
+          📊 状态
+        </button>
+        <button
+          class="menu-tab"
+          :class="{ 'active': $store.rpg.menuTab === 'gallery' }"
+          @click="$store.rpg.menuTab = 'gallery'">
+          🖼️ 画廊
+        </button>
+<button
+  class="menu-tab"
+  :class="{ 'active': $store.rpg.menuTab === 'quest' }"
+  @click="$store.rpg.menuTab = 'quest'">
+  📜 任务
+</button>
+
+        <button
+          class="menu-tab"
+          :class="{ 'active': $store.rpg.menuTab === 'custom' }"
+          @click="$store.rpg.menuTab = 'custom'">
+          🔧 自定义内容
+        </button>
+
+      </div>
+
+      <div class="menu-content">
+        <!-- 存档页 -->
+        <div x-show="$store.rpg.menuTab === 'save'" class="menu-page">
+          <h3>存档管理</h3>
+          <div class="save-slots-menu">
+            <template x-for="slot in [1, 2, 3]" :key="slot">
+              <div class="save-slot-menu">
+                <template x-if="$store.rpg.saveSlots[slot]">
+                  <div class="save-info-menu">
+                    <div class="save-header">
+                      <span x-text="$store.rpg.saveSlots[slot].playerName"></span>
+                      <span x-text="`Lv.${$store.rpg.saveSlots[slot].level}`"></span>
+                    </div>
+                    <div class="save-details">
+                      <span x-text="$store.rpg.saveSlots[slot].className"></span>
+                      <span x-text="$store.rpg.saveSlots[slot].location"></span>
+                    </div>
+                    <div class="save-time" x-text="$store.rpg.saveSlots[slot].timestamp"></div>
+                    <div class="save-actions">
+                      <button @click="$store.rpg.saveGame(slot)" class="save-action-btn">覆盖保存</button>
+                      <button @click="$store.rpg.loadGame(slot)" class="save-action-btn">读取</button>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="!$store.rpg.saveSlots[slot]">
+                  <div class="empty-slot-menu">
+                    <span>空存档槽位 #<span x-text="slot"></span></span>
+                    <button @click="$store.rpg.saveGame(slot)" class="save-action-btn">保存到此</button>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- 背包页 -->
+        <div x-show="$store.rpg.menuTab === 'bag'" class="menu-page">
+          <h3>物品背包</h3>
+          <div class="inventory-grid-menu">
+            <template x-for="(count, itemId) in $store.rpg.player.inventory" :key="itemId">
+              <div class="item-card-menu" @click="$store.rpg.showItemModal(itemId)">
+                <div class="item-icon" x-text="$store.rpg.getItemData(itemId)?.icon"></div>
+                <div class="item-name" x-text="$store.rpg.getItemData(itemId)?.name"></div>
+                <div class="item-count" x-text="`x${count}`"></div>
+              </div>
+            </template>
+          </div>
+          <div x-show="Object.keys($store.rpg.player.inventory).length === 0" class="empty-state">
+            背包空空如也...
+          </div>
+        </div>
+
+        <!-- 装备页 -->
+        <div x-show="$store.rpg.menuTab === 'equip'" class="menu-page">
+          <h3>装备栏</h3>
+          <div class="equipment-slots-menu">
+            <div class="equip-slot-menu">
+              <span class="equip-label">武器：</span>
+              <span class="equip-value" x-text="$store.rpg.player.equipment.weapon || '无'"></span>
+            </div>
+            <div class="equip-slot-menu">
+              <span class="equip-label">防具：</span>
+              <span class="equip-value" x-text="$store.rpg.player.equipment.armor || '无'"></span>
+            </div>
+            <div class="equip-slot-menu">
+              <span class="equip-label">饰品：</span>
+              <span class="equip-value" x-text="$store.rpg.player.equipment.accessory || '无'"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 状态页 -->
+        <div x-show="$store.rpg.menuTab === 'status'" class="menu-page">
+          <h3>角色状态</h3>
+          <div class="status-details-menu">
+            <div class="status-row-menu">
+              <span>角色名：</span>
+              <span x-text="$store.rpg.player.name"></span>
+            </div>
+            <div class="status-row-menu">
+              <span>职业：</span>
+              <span x-text="$store.rpg.player.className"></span>
+            </div>
+            <div class="status-row-menu">
+              <span>性别：</span>
+              <span x-text="$store.rpg.player.gender === 'male' ? '男性' : '女性'"></span>
+            </div>
+            <div class="status-row-menu">
+              <span>等级：</span>
+              <span x-text="$store.rpg.player.level"></span>
+            </div>
+            <div class="status-row-menu">
+              <span>生命值：</span>
+              <span x-text="`${$store.rpg.player.hp} / ${$store.rpg.player.maxHp}`"></span>
+            </div>
+            <div class="status-row-menu">
+              <span>魔法值：</span>
+              <span x-text="`${$store.rpg.player.mp} / ${$store.rpg.player.maxMp}`"></span>
+            </div>
+            <div class="status-row-menu">
+              <span>攻击力：</span>
+              <span x-text="$store.rpg.player.atk"></span>
+            </div>
+            <div class="status-row-menu">
+              <span>防御力：</span>
+              <span x-text="$store.rpg.player.def"></span>
+            </div>
+            <div class="status-row-menu">
+              <span>金币：</span>
+              <span x-text="$store.rpg.player.gold"></span>
+            </div>
+            <div class="status-row-menu">
+              <span>经验值：</span>
+              <span x-text="`${$store.rpg.player.exp} / ${$store.rpg.player.expToNext}`"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 画廊页 -->
+        <div x-show="$store.rpg.menuTab === 'gallery'" class="menu-page">
+          <h3>画廊</h3>
+          <div class="gallery-grid">
+            <template x-for="(img, index) in $store.rpg.gallery" :key="img.id">
+              <div class="gallery-item" @click="$store.rpg.viewImage(img)">
+                <img :src="img.url" :alt="img.target" class="gallery-thumbnail" />
+                <div class="gallery-info">
+                  <span x-text="img.target"></span>
+                  <button @click.stop="$store.rpg.deleteImage(img.id)" class="delete-btn">🗑️</button>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div x-show="$store.rpg.gallery.length === 0" class="empty-state">
+            画廊空空如也...
+          </div>
+        </div>
+<!-- 任务页（新增）-->
+<div x-show="$store.rpg.menuTab === 'quest'" class="menu-page">
+  <h3>任务记录</h3>
+
+  <!-- 当前任务 -->
+  <div x-show="$store.rpg.currentQuest" class="quest-record-section">
+    <h4>当前任务</h4>
+    <div class="quest-record-card">
+      <div class="quest-record-header">
+        <span x-text="QUEST_TYPES[$store.rpg.currentQuest?.type]?.icon"></span>
+        <span x-text="$store.rpg.currentQuest?.title"></span>
+      </div>
+      <div class="quest-record-status">
+        状态：<span x-text="$store.rpg.currentQuest?.status === 'in_progress' ? '执行中' : '暂不考虑'"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 历史任务 -->
+  <div class="quest-record-section">
+    <h4>已完成任务 (<span x-text="$store.rpg.questHistory.length"></span>)</h4>
+    <div class="quest-history-list">
+      <template x-for="quest in $store.rpg.questHistory" :key="quest.id">
+        <div class="quest-record-card">
+          <div class="quest-record-header">
+            <span x-text="QUEST_TYPES[quest.type]?.icon"></span>
+            <span x-text="quest.title"></span>
+          </div>
+          <div class="quest-record-rewards">
+            获得：💰<span x-text="quest.goldReward"></span> ⭐<span x-text="quest.expReward"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div x-show="$store.rpg.questHistory.length === 0" class="empty-state">
+      暂无完成记录
+    </div>
+  </div>
+</div>
+
+        <!-- 自定义内容管理页 -->
+        <div x-show="$store.rpg.menuTab === 'custom'" class="menu-page">
+          <h3>自定义内容管理</h3>
+
+          <!-- 物品列表 -->
+          <div class="custom-section">
+            <h4>📦 自定义物品 (<span x-text="Object.keys($store.rpg.customItems).length"></span>)</h4>
+            <div class="custom-list">
+              <template x-for="(item, id) in $store.rpg.customItems" :key="id">
+                <div class="custom-item">
+                  <div class="custom-item-header">
+                    <span class="custom-icon" x-text="item.icon"></span>
+                    <span class="custom-name" x-text="item.name"></span>
+                    <span class="custom-id" x-text="`(${id})`"></span>
+                  </div>
+                  <div class="custom-item-info">
+                    <span x-text="`类型: ${item.type}`"></span>
+                    <span x-text="`效果: ${item.effect}`"></span>
+                    <span x-text="`数值: ${item.value}`"></span>
+                  </div>
+                  <div class="custom-item-desc" x-text="item.desc"></div>
+                  <button @click="$store.rpg.deleteCustomItem(id)" class="delete-custom-btn">删除</button>
+                </div>
+              </template>
+            </div>
+            <div x-show="Object.keys($store.rpg.customItems).length === 0" class="empty-state">
+              暂无自定义物品
+            </div>
+          </div>
+
+          <!-- 敌人列表 -->
+          <div class="custom-section">
+            <h4>👹 自定义敌人 (<span x-text="Object.keys($store.rpg.customEnemies).length"></span>)</h4>
+            <div class="custom-list">
+              <template x-for="(enemy, id) in $store.rpg.customEnemies" :key="id">
+                <div class="custom-item">
+                  <div class="custom-item-header">
+                    <span class="custom-icon" x-text="enemy.icon"></span>
+                    <span class="custom-name" x-text="enemy.name"></span>
+                    <span class="custom-id" x-text="`(${id})`"></span>
+                  </div>
+                  <div class="custom-item-info">
+                    <span x-text="`HP: ${enemy.hp}`"></span>
+                    <span x-text="`攻击: ${enemy.atk}`"></span>
+                    <span x-text="`防御: ${enemy.def}`"></span>
+                    <span x-text="`经验: ${enemy.exp}`"></span>
+                    <span x-text="`金币: ${enemy.gold}`"></span>
+                  </div>
+                  <div class="custom-item-desc" x-text="enemy.desc"></div>
+                  <button @click="$store.rpg.deleteCustomEnemy(id)" class="delete-custom-btn">删除</button>
+                </div>
+              </template>
+            </div>
+            <div x-show="Object.keys($store.rpg.customEnemies).length === 0" class="empty-state">
+              暂无自定义敌人
+            </div>
+          </div>
+
+          <!-- 装备列表 -->
+          <div class="custom-section">
+            <h4>⚔️ 自定义装备 (<span x-text="Object.keys($store.rpg.customEquipment).length"></span>)</h4>
+            <div class="custom-list">
+              <template x-for="(equip, id) in $store.rpg.customEquipment" :key="id">
+                <div class="custom-item">
+                  <div class="custom-item-header">
+                    <span class="custom-icon" x-text="equip.icon"></span>
+                    <span class="custom-name" x-text="equip.name"></span>
+                    <span class="custom-id" x-text="`(${id})`"></span>
+                  </div>
+                  <div class="custom-item-info">
+                    <span x-text="`类型: ${equip.type}`"></span>
+                    <span x-text="`攻击: ${equip.atk}`"></span>
+                    <span x-text="`防御: ${equip.def}`"></span>
+                  </div>
+                  <div class="custom-item-desc" x-text="equip.desc"></div>
+                  <button @click="$store.rpg.deleteCustomEquipment(id)" class="delete-custom-btn">删除</button>
+                </div>
+              </template>
+            </div>
+            <div x-show="Object.keys($store.rpg.customEquipment).length === 0" class="empty-state">
+              暂无自定义装备
+            </div>
+          </div>
+
+          <!-- 清空按钮 -->
+          <button @click="$store.rpg.clearAllCustomContent()" class="danger-btn" style="margin-top: 20px;">
+            🗑️ 清空所有自定义内容
+          </button>
+        </div>
+
+
+      </div>
+
+
+
+      <button @click="$store.rpg.menuOpen = false" class="close-menu-btn">返回游戏</button>
+    </div>
+  </div>
+
+  <!-- 道具详情模态框 -->
+  <div x-show="$store.rpg.itemModalOpen" x-transition class="modal-overlay"
+    @click.self="$store.rpg.itemModalOpen = false">
+    <div class="modal-content">
+      <h3>道具详情</h3>
+      <div class="item-detail">
+        <div class="item-icon-large" x-text="$store.rpg.selectedItemData?.icon"></div>
+        <div class="item-name-large" x-text="$store.rpg.selectedItemData?.name"></div>
+        <div class="item-description" x-text="$store.rpg.getItemDescription($store.rpg.selectedItemId)"></div>
+        <div class="item-count-display">
+          拥有数量：<span x-text="$store.rpg.player.inventory[$store.rpg.selectedItemId] || 0"></span>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button @click="$store.rpg.confirmUseItem()" class="confirm-btn">使用</button>
+        <button @click="$store.rpg.itemModalOpen = false" class="cancel-btn">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 立绘生成器模态框 -->
+  <div x-show="$store.rpg.showArtGenerator" x-transition class="modal-overlay"
+    @click.self="$store.rpg.showArtGenerator = false">
+    <div class="modal-content art-generator">
+      <h3>📷 生成角色立绘</h3>
+
+      <div class="form-group">
+        <label>选择生成对象：</label>
+        <select x-model="$store.rpg.artTarget">
+          <option value="player">我的角色</option>
+          <option value="npc" x-show="$store.rpg.lastNPC">当前NPC</option>
+          <option value="enemy" x-show="$store.rpg.currentEnemy">当前敌人</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>自定义要求（可选）：</label>
+        <textarea
+          x-model="$store.rpg.artRequirement"
+          placeholder="例如：微笑着，手持武器，背景是森林..."
+          rows="3"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button @click="$store.rpg.generateArt()" :disabled="$store.rpg.generatingArt" class="confirm-btn">
+          <span x-show="!$store.rpg.generatingArt">✨ 生成</span>
+          <span x-show="$store.rpg.generatingArt">生成中...</span>
+        </button>
+        <button @click="$store.rpg.showArtGenerator = false" class="cancel-btn">取消</button>
+      </div>
+
+      <div x-show="$store.rpg.artError" class="error-message" x-text="$store.rpg.artError"></div>
+    </div>
+  </div>
+
+  <!-- 图片查看器 -->
+  <div x-show="$store.rpg.viewingImage" x-transition class="image-viewer" @click="$store.rpg.viewingImage = null">
+    <div class="image-viewer-content" @click.stop>
+      <img :src="$store.rpg.viewingImage?.url" alt="查看图片" class="viewed-image" />
+      <div class="image-viewer-info">
+        <p><strong>对象：</strong><span x-text="$store.rpg.viewingImage?.target"></span></p>
+        <p><strong>提示词：</strong><span x-text="$store.rpg.viewingImage?.prompt"></span></p>
+        <p><strong>生成时间：</strong><span x-text="$store.rpg.viewingImage?.timestamp"></span></p>
+      </div>
+      <button @click="$store.rpg.viewingImage = null" class="close-viewer-btn">✕</button>
+    </div>
+  </div>
+
+<!-- 冒险者公会面板（新增）-->
+<div x-show="$store.rpg.showGuildPanel" x-transition class="guild-overlay" @click.self="$store.rpg.showGuildPanel = false">
+  <div class="guild-panel">
+    <h2>🏛️ 冒险者公会</h2>
+
+    <!-- 冒险者等级展示 -->
+    <div class="adventurer-rank-display">
+      <div class="rank-badge" :style="`background: ${ADVENTURER_RANKS[$store.rpg.adventurerRank].color}`">
+        <span class="rank-letter" x-text="$store.rpg.adventurerRank"></span>
+      </div>
+      <div class="rank-info">
+        <div class="rank-name" x-text="ADVENTURER_RANKS[$store.rpg.adventurerRank].name"></div>
+        <div class="rank-exp-bar">
+          <div class="bar">
+            <div class="bar-fill exp"
+              :style="`width: ${($store.rpg.adventurerExp / $store.rpg.adventurerExpToNext) * 100}%`"></div>
+          </div>
+          <span class="rank-exp-text" x-text="`${$store.rpg.adventurerExp} / ${$store.rpg.adventurerExpToNext}`"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 当前任务显示 -->
+    <div x-show="$store.rpg.currentQuest" class="current-quest-section">
+      <h3>📜 当前任务</h3>
+      <div class="quest-card active">
+        <div class="quest-header">
+          <span class="quest-type-icon" x-text="QUEST_TYPES[$store.rpg.currentQuest?.type]?.icon"></span>
+          <span class="quest-title" x-text="$store.rpg.currentQuest?.title"></span>
+          <span class="quest-rank-badge"
+            :style="`background: ${ADVENTURER_RANKS[$store.rpg.currentQuest?.rank]?.color}`"
+            x-text="$store.rpg.currentQuest?.rank"></span>
+        </div>
+        <div class="quest-description" x-text="$store.rpg.currentQuest?.description"></div>
+        <div class="quest-guide">
+          <strong>执行提示：</strong>
+          <span x-text="$store.rpg.currentQuest?.guide"></span>
+        </div>
+        <div class="quest-rewards">
+          <span>💰 <span x-text="$store.rpg.currentQuest?.goldReward"></span></span>
+          <span>⭐ <span x-text="$store.rpg.currentQuest?.expReward"></span> 冒险者经验</span>
+        </div>
+        <div class="quest-status-buttons">
+          <button
+            @click="$store.rpg.setQuestStatus('in_progress')"
+            :class="{ 'active': $store.rpg.currentQuest?.status === 'in_progress' }"
+            class="status-btn">
+            ✅ 执行中
+          </button>
+          <button
+            @click="$store.rpg.setQuestStatus('on_hold')"
+            :class="{ 'active': $store.rpg.currentQuest?.status === 'on_hold' }"
+            class="status-btn">
+            ⏸️ 暂不考虑
+          </button>
+          <button
+            @click="$store.rpg.abandonQuest()"
+            class="status-btn abandon">
+            ❌ 放弃任务
+          </button>
+        </div>
+        <button
+          @click="$store.rpg.submitQuest()"
+          :disabled="$store.rpg.questSubmitting"
+          class="submit-quest-btn">
+          <span x-show="!$store.rpg.questSubmitting">📤 提交任务</span>
+          <span x-show="$store.rpg.questSubmitting">提交中...</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 可接取任务列表 -->
+    <div x-show="!$store.rpg.currentQuest" class="available-quests-section">
+      <div class="quest-list-header">
+        <h3>📋 可接取任务</h3>
+        <div class="quest-actions">
+          <button
+            @click="$store.rpg.generateQuests()"
+            :disabled="$store.rpg.questGenerating"
+            class="action-btn-small">
+            <span x-show="!$store.rpg.questGenerating">🎲 开始接取</span>
+            <span x-show="$store.rpg.questGenerating">生成中...</span>
+          </button>
+          <button
+            @click="$store.rpg.refreshQuests()"
+            :disabled="$store.rpg.questGenerating || $store.rpg.questList.length === 0"
+            class="action-btn-small">
+            🔄 刷新
+          </button>
+        </div>
+      </div>
+
+      <!-- 任务列表 -->
+      <div class="quest-list">
+        <template x-for="quest in $store.rpg.questList" :key="quest.id">
+          <div class="quest-card" @click="$store.rpg.selectQuest(quest.id)">
+            <div class="quest-header">
+              <span class="quest-type-icon" x-text="QUEST_TYPES[quest.type]?.icon"></span>
+              <span class="quest-title" x-text="quest.title"></span>
+              <span class="quest-rank-badge"
+                :style="`background: ${ADVENTURER_RANKS[quest.rank]?.color}`"
+                x-text="quest.rank"></span>
+            </div>
+            <div class="quest-brief" x-text="quest.brief"></div>
+            <div class="quest-rewards">
+              <span>💰 <span x-text="quest.goldReward"></span></span>
+              <span>⭐ <span x-text="quest.expReward"></span></span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- 空状态 -->
+      <div x-show="$store.rpg.questList.length === 0 && !$store.rpg.questGenerating" class="empty-state">
+        点击"开始接取"生成任务列表
+      </div>
+    </div>
+
+    <button @click="$store.rpg.showGuildPanel = false" class="close-guild-btn">返回游戏</button>
+  </div>
+</div>
+
+  <script>
+    // 通知父窗口准备就绪
+    if (window.parent !== window) {
+      window.parent.postMessage('iframe:content-ready', '*');
+    }
+
+    const dzmmReady = new Promise((resolve) => {
+      window.addEventListener('message', function handler(event) {
+        if (event.data?.type === 'dzmm:ready') {
+          window.removeEventListener('message', handler);
+          resolve();
+        }
+      });
+    });
+
+    // ============================================================================
+    // 游戏配置常量
+    // ============================================================================
+
+    const GAME_CONFIG = {
+      maxHistoryMessages: 15, // 最大历史消息数（关键修复）
+      baseExpToLevel: 100,
+      expGrowthRate: 1.5,
+      fleeSuccessRate: 0.6,
+      criticalRate: 0.15,
+      restHealPercent: 0.3,
+      maxSaveSlots: 3,
+    };
+
+// ============================================================================
+// 任务系统配置（新增）
+// ============================================================================
+
+// 冒险者等级配置
+const ADVENTURER_RANKS = {
+  E: { id: 'E', name: 'E级冒险者', color: '#95a5a6', expRequired: 0, questReward: 1.0 },
+  D: { id: 'D', name: 'D级冒险者', color: '#7f8c8d', expRequired: 100, questReward: 1.2 },
+  C: { id: 'C', name: 'C级冒险者', color: '#3498db', expRequired: 300, questReward: 1.5 },
+  B: { id: 'B', name: 'B级冒险者', color: '#9b59b6', expRequired: 600, questReward: 1.8 },
+  A: { id: 'A', name: 'A级冒险者', color: '#e74c3c', expRequired: 1000, questReward: 2.2 },
+  S: { id: 'S', name: 'S级冒险者', color: '#f39c12', expRequired: 2000, questReward: 3.0 }
+};
+
+// 任务类型配置
+const QUEST_TYPES = {
+  hunt: { id: 'hunt', name: '讨伐任务', icon: '⚔️', desc: '消灭指定怪物' },
+  escort: { id: 'escort', name: '护送任务', icon: '🛡️', desc: '保护目标安全抵达' },
+  gather: { id: 'gather', name: '采集任务', icon: '🌿', desc: '收集指定物品' },
+  clean: { id: 'clean', name: '清扫任务', icon: '🧹', desc: '清理指定区域' },
+  delivery: { id: 'delivery', name: '运送任务', icon: '📦', desc: '运送物品到目的地' },
+  investigate: { id: 'investigate', name: '调查任务', icon: '🔍', desc: '调查特定事件' },
+  rescue: { id: 'rescue', name: '救援任务', icon: '💊', desc: '救助被困人员' }
+};
+
+// 任务难度配置（根据冒险者等级）
+const QUEST_DIFFICULTY = {
+  E: { minReward: 50, maxReward: 150, expReward: 20 },
+  D: { minReward: 100, maxReward: 300, expReward: 40 },
+  C: { minReward: 200, maxReward: 600, expReward: 80 },
+  B: { minReward: 400, maxReward: 1200, expReward: 150 },
+  A: { minReward: 800, maxReward: 2500, expReward: 300 },
+  S: { minReward: 1500, maxReward: 5000, expReward: 600 }
+};
+
+// 任务状态枚举
+const QUEST_STATUS = {
+  AVAILABLE: 'available',      // 可接取
+  IN_PROGRESS: 'in_progress',  // 执行中
+  ON_HOLD: 'on_hold',          // 暂不考虑
+  COMPLETED: 'completed',      // 已完成
+  FAILED: 'failed'             // 失败
+};
+
+
+    const QUALITY_TAGS = 'artist:takeuchi_takashi, wanke, rella, (artist:okyou:0.4), (artist:askzy:0.3), (artist:quasarcake:0.3), (artist:wlop:0.3), (artist:nixeu:0.3), masterpiece, best quality, amazing quality, very aesthetic, absurdres, highres, newest, extreme aesthetic, year 2024, year 2023, (Visual impact:1.2), ultra-high resolution, 32K UHD, 6669, GFGoddess, unconventional supreme masterpiece, masterful details, regal atmosphere, high-end texture, fashion photography style, impactful picture, official art, movie perspective';
+
+    const NEGATIVE_PROMPT = 'lowres, bad anatomy, bad hands, text, error, missing fingers, worst quality, low quality, jpeg artifacts, watermark, blurry, multiple views, bad proportions, deformed, ugly, duplicate, mutilated, extra limbs, fused fingers, too many fingers, long neck, cross-eyed';
+
+    const CLASSES = [
+      {
+        id: 'warrior',
+        name: '战士',
+        icon: '⚔️',
+        desc: '高生命和攻击',
+        hp: 120,
+        mp: 30,
+        atk: 15,
+        def: 10,
+        skills: ['power_strike', 'shield_bash']
+      },
+      {
+        id: 'mage',
+        name: '法师',
+        icon: '🔮',
+        desc: '高魔法和技能',
+        hp: 80,
+        mp: 100,
+        atk: 8,
+        def: 5,
+        skills: ['fireball', 'ice_lance']
+      },
+      {
+        id: 'rogue',
+        name: '盗贼',
+        icon: '🗡️',
+        desc: '高暴击和速度',
+        hp: 100,
+        mp: 50,
+        atk: 12,
+        def: 7,
+        skills: ['backstab', 'poison_blade']
+      }
+    ];
+
+    const SKILLS = {
+      power_strike: { id: 'power_strike', name: '力劈', icon: '💥', cost: 10, damage: 2.0, desc: '强力的物理攻击' },
+      shield_bash: { id: 'shield_bash', name: '盾击', icon: '🛡️', cost: 15, damage: 1.5, stun: true, desc: '眩晕敌人' },
+      fireball: { id: 'fireball', name: '火球术', icon: '🔥', cost: 20, damage: 2.5, desc: '魔法火焰攻击' },
+      ice_lance: { id: 'ice_lance', name: '冰枪术', icon: '❄️', cost: 25, damage: 2.2, slow: true, desc: '冰冻减速' },
+      backstab: { id: 'backstab', name: '背刺', icon: '🗡️', cost: 15, damage: 2.8, crit: 0.5, desc: '高暴击攻击' },
+      poison_blade: { id: 'poison_blade', name: '毒刃', icon: '☠️', cost: 12, damage: 1.5, poison: true, desc: '持续毒伤' }
+    };
+
+    const LOCATIONS = {
+      town: {
+        id: 'town',
+        name: '新手村',
+        icon: '🏘️',
+        scene: 'https://opengameart.org/sites/default/files/entrance_-_brightly_lit.png',
+        enemies: [],
+        desc: '安全的村庄'
+      },
+      forest: {
+        id: 'forest',
+        name: '迷雾森林',
+        icon: '🌲',
+        scene: 'https://opengameart.org/sites/default/files/forest_background.png',
+        enemies: ['slime', 'wolf', 'goblin'],
+        desc: '危险的森林'
+      },
+      cave: {
+        id: 'cave',
+        name: '黑暗洞穴',
+        icon: '🕳️',
+        scene: 'https://opengameart.org/sites/default/files/cave_background.png',
+        enemies: ['bat', 'spider', 'skeleton'],
+        desc: '阴暗的洞穴'
+      },
+      dungeon: {
+        id: 'dungeon',
+        name: '古代地下城',
+        icon: '🏰',
+        scene: 'https://opengameart.org/sites/default/files/dungeon_background.png',
+        enemies: ['orc', 'dark_knight', 'dragon'],
+        desc: '危险的地下城'
+      }
+    };
+
+    const ENEMIES = {
+      slime: { id: 'slime', name: '史莱姆', icon: '🟢', hp: 30, atk: 5, def: 2, exp: 15, gold: 10 },
+      wolf: { id: 'wolf', name: '野狼', icon: '🐺', hp: 50, atk: 10, def: 5, exp: 25, gold: 20 },
+      goblin: { id: 'goblin', name: '哥布林', icon: '👺', hp: 60, atk: 12, def: 6, exp: 30, gold: 25 },
+      bat: { id: 'bat', name: '蝙蝠', icon: '🦇', hp: 40, atk: 8, def: 3, exp: 20, gold: 15 },
+      spider: { id: 'spider', name: '巨蛛', icon: '🕷️', hp: 70, atk: 15, def: 8, exp: 40, gold: 30 },
+      skeleton: { id: 'skeleton', name: '骷髅兵', icon: '💀', hp: 80, atk: 18, def: 10, exp: 50, gold: 40 },
+      orc: { id: 'orc', name: '兽人战士', icon: '👹', hp: 120, atk: 25, def: 15, exp: 80, gold: 60 },
+      dark_knight: { id: 'dark_knight', name: '黑暗骑士', icon: '⚔️', hp: 150, atk: 30, def: 20, exp: 120, gold: 100 },
+      dragon: { id: 'dragon', name: '火龙', icon: '🐉', hp: 300, atk: 50, def: 30, exp: 500, gold: 500 }
+    };
+
+    const ITEMS = {
+      potion: { id: 'potion', name: '生命药水', icon: '🧪', type: 'consumable', effect: 'heal', value: 50, price: 20, desc: '恢复50点生命值' },
+      mana_potion: { id: 'mana_potion', name: '魔法药水', icon: '💙', type: 'consumable', effect: 'restore_mp', value: 30, price: 25, desc: '恢复30点魔法值' },
+      elixir: { id: 'elixir', name: '万能药', icon: '✨', type: 'consumable', effect: 'full_heal', value: 999, price: 100, desc: '完全恢复生命和魔法' },
+      iron_sword: { id: 'iron_sword', name: '铁剑', icon: '🗡️', type: 'weapon', atk: 10, price: 50, desc: '普通的铁制剑' },
+      steel_sword: { id: 'steel_sword', name: '钢剑', icon: '⚔️', type: 'weapon', atk: 20, price: 150, desc: '锋利的钢制剑' },
+      leather_armor: { id: 'leather_armor', name: '皮甲', icon: '🦺', type: 'armor', def: 8, price: 40, desc: '轻便的皮革护甲' },
+      chain_mail: { id: 'chain_mail', name: '锁子甲', icon: '🛡️', type: 'armor', def: 15, price: 120, desc: '坚固的锁子甲' },
+      ring_of_power: { id: 'ring_of_power', name: '力量戒指', icon: '💍', type: 'accessory', atk: 5, price: 80, desc: '增加攻击力的戒指' }
+    };
+
+
+    // ============================================================================
+    // Alpine.js Store - 游戏状态管理
+    // ============================================================================
+
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('rpg', {
+        // 游戏状态
+        loading: true,
+        loadingText: '正在加载奇幻世界...',
+        gameStarted: false,
+        actionLocked: false,
+        inBattle: false,
+
+  // ===== 新增：双模型配置 =====
+  storyModel: 'nalang-xl-0826-16k',     
+  responseModel: 'nalang-xl-0826-16k',     
+
+        // UI状态
+        showCharCreation: false,
+        showLoadGame: false,
+        menuOpen: false,
+        menuTab: 'save',
+        itemModalOpen: false,
+        showArtGenerator: false,
+        generatingArt: false,
+        artError: '',
+        viewingImage: null,
+
+        // 角色创建
+        playerName: '',
+        playerGender: 'male',
+        playerAppearance: '',
+        selectedClass: null,
+        classes: CLASSES,
+
+        // 存档系统
+        saveSlots: {},
+        currentSlot: null,
+
+        // 玩家数据
+        player: {
+          name: '',
+          gender: 'male',
+          appearance: '',
+          className: '',
+          classId: '',
+          level: 1,
+          exp: 0,
+          expToNext: 100,
+          hp: 100,
+          maxHp: 100,
+          mp: 50,
+          maxMp: 50,
+          atk: 10,
+          def: 5,
+          gold: 100,
+          location: 'town',
+          inventory: {},
+          equipment: {
+            weapon: null,
+            armor: null,
+            accessory: null
+          },
+          skills: []
+        },
+
+  // ===== 任务系统状态（新增）=====
+  adventurerRank: 'E',           // 当前冒险者等级
+  adventurerExp: 0,              // 冒险者经验
+  adventurerExpToNext: 100,      // 升级所需经验
+
+  showGuildPanel: false,         // 是否显示公会面板
+  questList: [],                 // 可接取任务列表
+  currentQuest: null,            // 当前任务
+  questHistory: [],              // 已完成任务历史
+  generatedQuestIds: [],         // 已生成的任务ID（用于刷新时排除）
+
+  questGenerating: false,        // 任务生成中
+  questSubmitting: false,        // 任务提交中
+
+        // 战斗数据
+        currentEnemy: null,
+        lastNPC: null,
+
+        // UI数据
+        storyText: '欢迎来到奇幻世界...',
+        currentScene: LOCATIONS.town.scene,
+        availableLocations: Object.values(LOCATIONS),
+        targetLocation: 'town',
+        playerInput: '',
+        adventureLog: [],
+
+        // 道具模态框
+        selectedItemId: null,
+        selectedItemData: null,
+
+        // 立绘生成
+        artTarget: 'player',
+        artRequirement: '',
+        gallery: [],
+
+// ===== 新增：动态内容库 =====
+customItems: {},      // 自定义物品 {itemId: itemData}
+customEnemies: {},    // 自定义敌人 {enemyId: enemyData}
+customEquipment: {}, // 自定义装备 {equipId: equipData}
+
+
+        // ========================================================================
+        // 初始化
+        // ========================================================================
+        async init() {
+          this.loading = true;
+          this.loadingText = '正在连接服务器...';
+          await dzmmReady;
+
+          this.loadingText = '正在加载存档...';
+          await this.loadSaveSlots();
+          await this.loadGallery();
+
+  // ===== 新增：加载自定义内容 =====
+  this.loadingText = '正在加载自定义内容...';
+  await this.loadCustomContent();
+
+          this.loading = false;
+        },
+
+        // ========================================================================
+        // 存档系统
+        // ========================================================================
+        async loadSaveSlots() {
+          try {
+            for (let i = 1; i <= GAME_CONFIG.maxSaveSlots; i++) {
+              const data = await window.dzmm.kv.get(`rpg_save_slot_${i}`);
+              if (data?.value) {
+                this.saveSlots[i] = JSON.parse(data.value);
+              }
+            }
+          } catch (error) {
+            console.warn('加载存档失败:', error);
+          }
+        },
+
+        async saveGame(slotId) {
+          try {
+            const saveData = {
+              playerName: this.player.name,
+              gender: this.player.gender,
+              appearance: this.player.appearance,
+              className: this.player.className,
+              classId: this.player.classId,
+              level: this.player.level,
+              location: LOCATIONS[this.player.location].name,
+              timestamp: new Date().toLocaleString('zh-CN'),
+              player: this.player,
+              inBattle: this.inBattle,
+              currentEnemy: this.currentEnemy,
+              currentScene: this.currentScene,
+    // 任务系统数据（新增）
+    adventurerRank: this.adventurerRank,
+    adventurerExp: this.adventurerExp,
+    adventurerExpToNext: this.adventurerExpToNext,
+    currentQuest: this.currentQuest,
+    questHistory: this.questHistory,
+    generatedQuestIds: this.generatedQuestIds
+            };
+
+            await window.dzmm.kv.put(`rpg_save_slot_${slotId}`, JSON.stringify(saveData));
+            this.saveSlots[slotId] = saveData;
+            this.currentSlot = slotId;
+
+            alert(`保存成功！存档槽位 #${slotId}`);
+          } catch (error) {
+            console.error('保存失败:', error);
+            alert('保存失败，请重试');
+          }
+        },
+
+        async loadGame(slotId) {
+          try {
+            const saveData = this.saveSlots[slotId];
+            if (!saveData) {
+              alert('此存档槽位为空');
+              return;
+            }
+
+            this.player = saveData.player;
+            this.inBattle = saveData.inBattle || false;
+            this.currentEnemy = saveData.currentEnemy;
+            this.currentScene = saveData.currentScene;
+            this.currentSlot = slotId;
+
+  // 恢复任务系统（新增）
+  this.adventurerRank = saveData.adventurerRank || 'E';
+  this.adventurerExp = saveData.adventurerExp || 0;
+  this.adventurerExpToNext = saveData.adventurerExpToNext || 100;
+  this.currentQuest = saveData.currentQuest || null;
+  this.questHistory = saveData.questHistory || [];
+  this.generatedQuestIds = saveData.generatedQuestIds || [];
+
+            this.gameStarted = true;
+            this.showLoadGame = false;
+
+            // 从chat API恢复最后的剧情文本
+            await this.restoreStoryText();
+
+            alert('读取成功！');
+          } catch (error) {
+            console.error('读取失败:', error);
+            alert('读取失败，请重试');
+          }
+        },
+
+        async restoreStoryText() {
+          try {
+            const messages = await window.dzmm.chat.list();
+            if (messages && messages.length > 0) {
+              for (let i = messages.length - 1; i >= 0; i--) {
+                if (messages[i].role === 'assistant') {
+                  const parsed = this.parseAIResponse(messages[i].content);
+                  if (parsed.ready) {
+                    this.storyText = parsed.story;
+                    break;
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('恢复剧情文本失败:', error);
+          }
+        },
+
+        // ========================================================================
+        // 游戏开始
+        // ========================================================================
+        async startGame() {
+          const selectedClassData = CLASSES.find(c => c.id === this.selectedClass);
+          if (!selectedClassData) return;
+
+          this.player = {
+            name: this.playerName,
+            gender: this.playerGender,
+            appearance: this.playerAppearance,
+            className: selectedClassData.name,
+            classId: selectedClassData.id,
+            level: 1,
+            exp: 0,
+            expToNext: GAME_CONFIG.baseExpToLevel,
+            hp: selectedClassData.hp,
+            maxHp: selectedClassData.hp,
+            mp: selectedClassData.mp,
+            maxMp: selectedClassData.mp,
+            atk: selectedClassData.atk,
+            def: selectedClassData.def,
+            gold: 100,
+            location: 'town',
+            inventory: { potion: 3 },
+            equipment: { weapon: null, armor: null, accessory: null },
+            skills: selectedClassData.skills.map(id => SKILLS[id])
+          };
+
+          this.gameStarted = true;
+          this.showCharCreation = false;
+          this.currentScene = LOCATIONS.town.scene;
+          this.addLog(`${this.player.name}开始了冒险旅程！`);
+
+// 清空旧的chat历史（新游戏）
+try {
+  const oldMessages = await window.dzmm.chat.list();
+  console.log(`清理${oldMessages.length}条旧消息`);
+} catch (e) {
+  console.warn('清理历史失败:', e);
+}
+
+await this.requestAI('game_start', { userAction: '开始游戏' });
+        },
+
+        // ========================================================================
+// ========================================================================
+// AI请求 - 双模型协作（完全替换原函数）
+// ========================================================================
+async requestAI(action, context = {}) {
+  this.actionLocked = true;
+  this.storyText = '<span class="loading">正在生成故事...</span>';
+
+  try {
+    // ===== 步骤1：调用正文模型生成叙事 =====
+    const storyContent = await this.generateStory(action, context);
+
+    if (!storyContent) {
+      throw new Error('正文生成失败');
+    }
+
+    // 显示生成的正文
+    this.storyText = storyContent;
+
+    // ===== 步骤2：调用响应模型解析正文并更新数据 =====
+    this.storyText = storyContent + '<br><span class="loading" style="font-size: 12px; color: #ffd43b;">正在更新游戏数据...</span>';
+
+    await this.parseStoryAndUpdate(storyContent, action, context);
+
+    // 移除加载提示
+    this.storyText = storyContent;
+
+    // ===== 步骤3：保存到chat历史 =====
+    try {
+      const toSave = [];
+      if (context.userAction && context.userAction.trim()) {
+        toSave.push({ role: 'user', content: context.userAction });
+      }
+      toSave.push({ role: 'assistant', content: storyContent });
+
+      if (toSave.length > 0) {
+        await window.dzmm.chat.insert(null, toSave);
+        console.log(`已保存${toSave.length}条消息`);
+      }
+    } catch (saveError) {
+      console.warn('保存消息失败:', saveError);
+    }
+
+  } catch (error) {
+    console.error('AI请求失败:', error);
+    this.storyText = `<p style="color: #ff4444;">❌ 请求失败: ${error.message}</p>`;
+  } finally {
+    this.actionLocked = false;
+  }
+},
+
+// ========================================================================
+// 生成故事正文（正文模型）
+// ========================================================================
+async generateStory(action, context) {
+  try {
+    // 读取最近5条历史（仅用于故事连贯性）
+    const allMessages = await window.dzmm.chat.list();
+    const recentMessages = allMessages.slice(-5);
+
+    // 构建简化的故事提示词
+    const storyPrompt = this.buildStoryPrompt(action, context);
+
+    const messages = [
+      { role: 'user', content: storyPrompt },
+      ...recentMessages.map(msg => ({ role: msg.role, content: msg.content }))
+    ];
+
+    if (context.userAction && context.userAction.trim()) {
+      messages.push({ role: 'user', content: context.userAction });
+    }
+
+    let fullContent = '';
+
+    await window.dzmm.completions(
+      {
+        model: this.storyModel,  // 使用正文模型
+        messages,
+        maxTokens: 1000
+      },
+      (content, done) => {
+        fullContent = content;
+        if (!done) {
+          // 流式显示（可选）
+          this.storyText = this.formatStory(fullContent);
+        }
+      }
+    );
+
+    return this.formatStory(fullContent);
+
+  } catch (error) {
+    console.error('正文生成失败:', error);
+    return null;
+  }
+},
+
+// ========================================================================
+// 构建故事提示词（精简版，仅关注叙事）
+// ========================================================================
+buildStoryPrompt(action, context) {
+  const genderText = this.player.gender === 'male' ? '男性' : '女性';
+  const appearanceText = this.player.appearance ? `，外观：${this.player.appearance}` : '';
+
+  return `你是奇幻RPG游戏的叙事者，负责生成生动的故事文本。
+
+**当前状态**：
+- 角色：${this.player.name}（${genderText}，${this.player.className} Lv.${this.player.level}${appearanceText}）
+- 位置：${LOCATIONS[this.player.location].name}
+- 场景：${this.currentScene}
+- HP: ${this.player.hp}/${this.player.maxHp} | MP: ${this.player.mp}/${this.player.maxMp}
+${this.inBattle ? `- 战斗中：${this.currentEnemy.name}（HP: ${this.currentEnemy.hp}/${this.currentEnemy.maxHp}）` : ''}
+
+${this.currentQuest && this.currentQuest.status === QUEST_STATUS.IN_PROGRESS ? `
+**当前任务（执行中）**：
+任务：${this.currentQuest.title}
+描述：${this.currentQuest.description}
+执行提示：${this.currentQuest.guide}
+
+**任务影响**：
+- 你的行动应该考虑任务目标
+- 如果行动与任务相关，自然地推进任务进度
+- 不要强制完成任务，让玩家自主探索
+` : ''}
+
+**行动**：${action}
+${context.damage ? `- 造成伤害：${context.damage}` : ''}
+${context.skillName ? `- 使用技能：${context.skillName}` : ''}
+${context.enemyDamage ? `- 受到伤害：${context.enemyDamage}` : ''}
+
+**输出要求**：
+1. 只输出故事正文，不要任何标记、格式、数据
+2. 必须分段，每段50-100字
+3. 语言生动简洁，场景描写和对话分开
+4. 用空行分隔段落
+
+直接开始讲述故事：`;
+},
+
+// ========================================================================
+// 格式化故事文本
+// ========================================================================
+formatStory(text) {
+  // 清理可能的调试信息
+  text = text.replace(/当前状态：[\s\S]*?行动：\w+/g, '');
+  text = text.replace(/\*\*.*?\*\*/g, '');  // 移除加粗标记
+
+  // 转换换行
+  text = text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>');
+  return `<p>${text.trim()}</p>`;
+},
+
+// ========================================================================
+// 解析故事并更新游戏数据（响应模型）- 修复版
+// ========================================================================
+async parseStoryAndUpdate(storyText, action, context) {
+  try {
+    // 获取用户最后输入（如果有）
+    const userAction = context.userAction || '';
+
+    // 构建解析提示词
+    const parsePrompt = `你是游戏数据分析器。请分析故事文本和用户行动，提取数据变化。
+
+<current_context>
+**用户行动**：${userAction}
+**故事正文**：
+${storyText}
+</current_context>
+
+<current_data>
+HP:${this.player.hp}/${this.player.maxHp}
+MP:${this.player.mp}/${this.player.maxMp}
+等级:${this.player.level}
+金币:${this.player.gold}
+经验:${this.player.exp}/${this.player.expToNext}
+当前位置:${LOCATIONS[this.player.location].name}
+战斗状态:${this.inBattle ? '战斗中' : '非战斗'}
+${this.inBattle ? `当前敌人:${this.currentEnemy.name}(HP:${this.currentEnemy.hp}/${this.currentEnemy.maxHp})` : ''}
+</current_data>
+
+<known_content>
+**已知物品**：${Object.keys(ITEMS).concat(Object.keys(this.customItems)).join(', ')}
+**已知敌人**：${Object.keys(ENEMIES).concat(Object.keys(this.customEnemies)).join(', ')}
+**已知装备**：${Object.keys(ITEMS).filter(id => ITEMS[id].type === 'weapon' || ITEMS[id].type === 'armor').concat(Object.keys(this.customEquipment)).join(', ')}
+</known_content>
+
+<rules>
+### 核心规则
+1. **战斗触发判定**：
+   - 只有当故事正文中**明确描述玩家遭遇/被攻击/进入战斗**时，才判定"新敌人"
+   - 如果只是提到敌人名字（如"史莱姆很常见"、"购买对抗巨型蜘蛛的装备"），**不触发战斗**
+   - 如果当前已在战斗中，不要重复触发新敌人
+
+2. **数据变化判定**：
+   - HP/MP变化：只记录故事中**明确描述**的变化（如"受到10点伤害"）
+   - 金币变化：只记录故事中的交易/拾取/奖励
+   - 经验变化：只记录故事中的战斗胜利/任务完成
+   - **等级变化**：如果故事中提到"升级"、"等级提升至X"，记录等级变化
+   - 装备更新：只有故事中明确"装备了XX"才记录
+
+3. **自定义内容创建规则**：
+   - **必须创建**：故事中出现了**全新的**物品/敌人/装备，且不在已知列表中
+   - **不要创建**：如果内容已存在于已知列表中
+   - **示例**：
+     * "发现了月光草" → 检查已知物品 → 如果没有，创建moonlight_herb
+     * "遇到了史莱姆" → 检查已知敌人 → 已存在slime，不创建
+     * "商人出售火焰剑" → 检查已知装备 → 如果没有，创建flame_sword
+
+4. **战斗结束判定**：
+   - 战斗结束：胜利 - 敌人被击败
+   - 战斗结束：逃跑 - 玩家成功逃离
+   - 战斗结束：失败 - 玩家HP归零
+   - 战斗继续 - 战斗未结束
+</rules>
+
+<output_format>
+严格按照以下格式输出（每行一个数据，用冒号分隔）：
+
+###DATA
+HP变化:数字（正数用+，负数用-，无变化用0）
+MP变化:数字（正数用+，负数用-，无变化用0）
+金币变化:数字（正数用+，负数用-，无变化用0）
+经验变化:数字（正数用+，负数用-，无变化用0）
+等级变化:数字（提升用+，无变化用0）
+获得物品:ID或无
+装备更新:ID或无
+新敌人:ID或无
+位置变化:ID或无
+NPC名字:名字或无
+战斗结束:胜利/逃跑/失败/继续
+###END
+
+###NEW
+物品:ID,名字,emoji,类型,效果,数值,描述
+敌人:ID,名字,emoji,HP,攻击,防御,经验,金币,描述
+装备:ID,名字,emoji,类型,攻击,防御,描述
+###END
+
+**注意**：
+- 如果没有对应变化，填"0"或"无"
+- 如果故事中的内容已在已知列表中，NEW区域填"无"
+- ID命名：英文+下划线，如moonlight_herb
+</output_format>
+
+<examples>
+### 示例1：休息场景（不触发战斗）
+**用户行动**：休息恢复
+**故事正文**：你在新手村的旅馆中休息，恢复了30点生命值。村民们在讨论最近史莱姆增多的事情。
+
+**正确输出**：
+###DATA
+HP变化:+30
+MP变化:0
+金币变化:0
+经验变化:0
+等级变化:0
+获得物品:无
+装备更新:无
+新敌人:无
+位置变化:无
+NPC名字:无
+战斗结束:继续
+###END
+
+###NEW
+物品:无
+敌人:无
+装备:无
+###END
+
+### 示例2：购买装备场景（不触发战斗）
+**用户行动**：购买装备
+**故事正文**：你来到铁匠铺，商人向你推荐了一把专门用来对抗巨型蜘蛛的钢剑，售价150金币。你支付了金币，装备上了钢剑。
+
+**正确输出**：
+###DATA
+HP变化:0
+MP变化:0
+金币变化:-150
+经验变化:0
+等级变化:0
+获得物品:无
+装备更新:steel_sword
+新敌人:无
+位置变化:无
+NPC名字:铁匠
+战斗结束:继续
+###END
+
+###NEW
+物品:无
+敌人:无
+装备:无
+###END
+
+### 示例3：真正遭遇敌人（触发战斗）
+**用户行动**：探索森林
+**故事正文**：你深入迷雾森林，突然一只巨大的史莱姆从树丛中跳出，挡住了你的去路！它发出威胁性的叫声，战斗开始了！
+
+**正确输出**：
+###DATA
+HP变化:0
+MP变化:0
+金币变化:0
+经验变化:0
+等级变化:0
+获得物品:无
+装备更新:无
+新敌人:slime
+位置变化:无
+NPC名字:无
+战斗结束:继续
+###END
+
+###NEW
+物品:无
+敌人:无
+装备:无
+###END
+
+### 示例4：获得新物品（需要创建）
+**用户行动**：探索森林
+**故事正文**：你在森林深处发现了一株散发着银色光芒的月光草，这是一种罕见的草药。你小心翼翼地采集了它。
+
+**正确输出**：
+###DATA
+HP变化:0
+MP变化:0
+金币变化:0
+经验变化:0
+等级变化:0
+获得物品:moonlight_herb
+装备更新:无
+新敌人:无
+位置变化:无
+NPC名字:无
+战斗结束:继续
+###END
+
+###NEW
+物品:moonlight_herb,月光草,🌿,consumable,restore_mp,80,月光下生长的神秘草药，可恢复大量魔法值
+敌人:无
+装备:无
+###END
+
+### 示例5：升级场景
+**用户行动**：击败哥布林
+**故事正文**：哥布林发出最后的哀嚎倒下了。你获得了30点经验和25金币。一道金光闪过，你感到力量涌入身体——等级提升至2级！
+
+**正确输出**：
+###DATA
+HP变化:0
+MP变化:0
+金币变化:+25
+经验变化:+30
+等级变化:+1
+获得物品:无
+装备更新:无
+新敌人:无
+位置变化:无
+NPC名字:无
+战斗结束:胜利
+###END
+
+###NEW
+物品:无
+敌人:无
+装备:无
+###END
+</examples>
+
+现在分析：`;
+
+    let responseText = '';
+
+    await window.dzmm.completions(
+      {
+        model: this.responseModel,
+        messages: [{ role: 'user', content: parsePrompt }],
+        maxTokens: 400
+      },
+      (content, done) => {
+        responseText = content;
+      }
+    );
+
+    // 解析新内容
+    this.parseNewContent(responseText);
+
+    // 应用数据变化
+    this.applyDataChanges(responseText, action);
+
+  } catch (error) {
+    console.error('数据解析失败:', error);
+  }
+},
+
+// ========================================================================
+// 应用数据变化（修复版）
+// ========================================================================
+applyDataChanges(responseText, action) {
+  try {
+    const dataMarker = '###DATA';
+    const endMarker = '###END';
+    const dataIndex = responseText.indexOf(dataMarker);
+    const endIndex = responseText.indexOf(endMarker, dataIndex + dataMarker.length);
+
+    if (dataIndex === -1 || endIndex === -1) {
+      console.warn('响应格式错误，跳过数据更新');
+      return;
+    }
+
+    const dataBlock = responseText.slice(dataIndex + dataMarker.length, endIndex).trim();
+    const lines = dataBlock.split('\n');
+
+    console.log('===== 数据解析 =====');
+    console.log(dataBlock);
+
+    // ===== 修复：技能使用时跳过MP变化 =====
+    const skipMPUpdate = action === 'use_skill';
+
+    lines.forEach(line => {
+      const [key, value] = line.split(':').map(s => s.trim());
+
+      // HP变化
+      if (key === 'HP变化' && value !== '0') {
+        const change = parseInt(value);
+        if (!isNaN(change)) {
+          this.player.hp = Math.max(0, Math.min(this.player.maxHp, this.player.hp + change));
+          console.log(`HP变化: ${change > 0 ? '+' : ''}${change}`);
+        }
+      }
+
+      // MP变化（技能使用时跳过）
+      if (key === 'MP变化' && value !== '0' && !skipMPUpdate) {
+        const change = parseInt(value);
+        if (!isNaN(change)) {
+          this.player.mp = Math.max(0, Math.min(this.player.maxMp, this.player.mp + change));
+          console.log(`MP变化: ${change > 0 ? '+' : ''}${change}`);
+        }
+      } else if (skipMPUpdate) {
+        console.log('技能使用，跳过MP更新（避免重复扣除）');
+      }
+
+      // 金币变化
+      if (key === '金币变化' && value !== '0') {
+        const change = parseInt(value);
+        if (!isNaN(change)) {
+          this.player.gold = Math.max(0, this.player.gold + change);
+          console.log(`金币变化: ${change > 0 ? '+' : ''}${change}`);
+        }
+      }
+
+      // ===== 修复：等级变化 =====
+      if (key === '等级变化' && value !== '0') {
+        const change = parseInt(value);
+        if (!isNaN(change) && change > 0) {
+          for (let i = 0; i < change; i++) {
+            this.levelUpDirect();
+          }
+          console.log(`等级提升: +${change}`);
+        }
+      }
+
+      // 经验值变化
+      if (key === '经验变化' && value !== '0') {
+        const change = parseInt(value);
+        if (!isNaN(change)) {
+          this.addExperience(change);
+          console.log(`经验值变化: ${change > 0 ? '+' : ''}${change}`);
+        }
+      }
+
+      // 获得物品
+      if (key === '获得物品' && value !== '无') {
+        const itemData = this.getItemData(value);
+        if (itemData) {
+          this.addItem(value, 1);
+          console.log(`获得物品: ${itemData.name}`);
+        } else {
+          console.warn(`未找到物品: ${value}`);
+        }
+      }
+
+      // 装备更新
+      if (key === '装备更新' && value !== '无') {
+        const item = this.getItemData(value);
+        if (item && (item.type === 'weapon' || item.type === 'armor')) {
+          if (item.type === 'weapon') {
+            this.player.equipment.weapon = value;
+            this.player.atk += item.atk || 0;
+          } else if (item.type === 'armor') {
+            this.player.equipment.armor = value;
+            this.player.def += item.def || 0;
+          }
+          console.log(`装备更新: ${item.name}`);
+        } else {
+          console.warn(`未找到装备或类型错误: ${value}`);
+        }
+      }
+
+      // 新敌人（只在非战斗状态下触发）
+      if (key === '新敌人' && value !== '无' && !this.inBattle) {
+        const enemyData = this.getEnemyData(value);
+        if (enemyData) {
+          this.triggerBattleFromAI(value);
+          console.log(`触发战斗: ${enemyData.name}`);
+        } else {
+          console.warn(`未找到敌人: ${value}`);
+        }
+      }
+
+      // 位置变化
+      if (key === '位置变化' && value !== '无' && LOCATIONS[value]) {
+        this.player.location = value;
+        this.currentScene = LOCATIONS[value].scene;
+        console.log(`位置变化: ${LOCATIONS[value].name}`);
+      }
+
+      // NPC记录
+      if (key === 'NPC名字' && value !== '无') {
+        this.lastNPC = value;
+        console.log(`记录NPC: ${value}`);
+      }
+
+      // ===== 修复：战斗结束判定 =====
+      if (key === '战斗结束' && this.inBattle) {
+        if (value === '胜利') {
+          console.log('战斗胜利，发放奖励');
+          this.winBattleReward();
+        } else if (value === '逃跑') {
+          console.log('成功逃跑');
+          this.inBattle = false;
+          this.currentEnemy = null;
+        } else if (value === '失败') {
+          console.log('战斗失败');
+          this.gameOver();
+        }
+        // '继续'则不做处理
+      }
+    });
+
+  } catch (error) {
+    console.error('应用数据变化失败:', error);
+  }
+},
+
+// ========================================================================
+// 经验值处理（新增函数）
+// ========================================================================
+addExperience(exp) {
+  this.player.exp += exp;
+
+  // 循环检查升级（处理溢出经验）
+  while (this.player.exp >= this.player.expToNext) {
+    const overflow = this.player.exp - this.player.expToNext;
+    this.levelUpDirect();
+    this.player.exp = overflow;  // 保留溢出经验
+    console.log(`溢出经验: ${overflow}`);
+  }
+},
+
+// ========================================================================
+// 任务系统逻辑（新增）
+// ========================================================================
+
+// 生成任务列表
+async generateQuests() {
+  if (this.questGenerating) return;
+
+  this.questGenerating = true;
+  this.loadingText = '正在生成任务...';
+
+  try {
+    const prompt = `你是冒险者公会的任务发布员。请为${this.adventurerRank}级冒险者生成5个不同类型的任务。
+
+<current_context>
+冒险者等级：${this.adventurerRank}级（${ADVENTURER_RANKS[this.adventurerRank].name}）
+当前位置：${LOCATIONS[this.player.location].name}
+玩家等级：${this.player.level}
+玩家职业：${this.player.className}
+</current_context>
+
+<quest_types>
+${Object.values(QUEST_TYPES).map(t => `${t.icon} ${t.name}：${t.desc}`).join('\n')}
+</quest_types>
+
+<difficulty_config>
+${this.adventurerRank}级任务奖励范围：${QUEST_DIFFICULTY[this.adventurerRank].minReward}-${QUEST_DIFFICULTY[this.adventurerRank].maxReward}金币
+冒险者经验奖励：${QUEST_DIFFICULTY[this.adventurerRank].expReward}点
+</difficulty_config>
+
+<exclude_list>
+${this.generatedQuestIds.length > 0 ? `以下任务ID已生成过，不要重复：${this.generatedQuestIds.join(', ')}` : '无排除项'}
+</exclude_list>
+
+<output_format>
+严格按照以下XML格式输出5个任务：
+
+<quest>
+<id>任务ID（英文+下划线，如hunt_wolves_forest）</id>
+<type>任务类型（hunt/escort/gather/clean/delivery/investigate/rescue之一）</type>
+<title>任务标题（15字内）</title>
+<brief>简要描述（30字内）</brief>
+<goldReward>金币奖励（数字，在配置范围内）</goldReward>
+</quest>
+
+**要求**：
+1. 5个任务类型必须不同
+2. 任务ID不得与排除列表重复
+3. 任务难度符合${this.adventurerRank}级冒险者
+4. 任务内容与当前位置、职业相关
+5. 标题吸引人，简要描述清晰
+</output_format>
+
+<examples>
+<quest>
+<id>hunt_slimes_forest</id>
+<type>hunt</type>
+<title>森林史莱姆清理</title>
+<brief>消灭迷雾森林中的5只史莱姆</brief>
+<goldReward>120</goldReward>
+</quest>
+
+<quest>
+<id>escort_merchant_town</id>
+<type>escort</type>
+<title>护送商人回城</title>
+<brief>保护商人安全返回新手村</brief>
+<goldReward>180 </goldReward>
+</quest>
+</examples>
+
+现在开始生成：`;
+
+    let responseText = '';
+    await window.dzmm.completions(
+      {
+        model: this.responseModel,
+        messages: [{ role: 'user', content: prompt }],
+        maxTokens: 1000
+      },
+      (content, done) => {
+        responseText = content;
+      }
+    );
+
+    console.log('===== 任务生成原始返回 =====');
+    console.log(responseText);
+
+    // 解析任务列表
+    const questMatches = [...responseText.matchAll(/<quest>[\s\S]*?<id>(.*?)<\/id>[\s\S]*?<type>(.*?)<\/type>[\s\S]*?<title>(.*?)<\/title>[\s\S]*?<brief>(.*?)<\/brief>[\s\S]*?<goldReward>(\d+)<\/goldReward>[\s\S]*?<\/quest>/g)];
+
+    if (questMatches.length === 0) {
+      console.error('任务解析失败');
+      alert('任务生成失败，请重试');
+      return;
+    }
+
+    this.questList = questMatches.map(match => ({
+      id: match[1].trim(),
+      type: match[2].trim(),
+      title: match[3].trim(),
+      brief: match[4].trim(),
+      goldReward: parseInt(match[5]),
+      expReward: QUEST_DIFFICULTY[this.adventurerRank].expReward,
+      rank: this.adventurerRank
+    }));
+
+    // 记录已生成的任务ID
+    this.generatedQuestIds.push(...this.questList.map(q => q.id));
+
+    console.log(`成功生成 ${this.questList.length} 个任务`);
+
+  } catch (error) {
+    console.error('任务生成失败:', error);
+    alert('任务生成失败：' + error.message);
+  } finally {
+    this.questGenerating = false;
+  }
+},
+
+// 刷新任务列表（排除已生成的）
+async refreshQuests() {
+  this.questList = [];
+  await this.generateQuests();
+},
+
+// 选择任务并生成详情
+async selectQuest(questId) {
+  const quest = this.questList.find(q => q.id === questId);
+  if (!quest) return;
+
+  this.questGenerating = true;
+  this.loadingText = '正在生成任务详情...';
+
+  try {
+    const prompt = `你是冒险者公会的任务发布员。请为以下任务生成详细介绍。
+
+<quest_basic>
+任务ID：${quest.id}
+任务类型：${QUEST_TYPES[quest.type].name}
+任务标题：${quest.title}
+简要描述：${quest.brief}
+</quest_basic>
+
+<output_format>
+严格按照以下格式输出：
+
+<description>
+任务的详细背景和要求（100-200字，讲述任务来源、目标、注意事项）
+</description>
+
+<guide>
+执行提示（50字内，告诉玩家如何完成任务，如"前往迷雾森林，消灭5只史莱姆后返回公会"）
+</guide>
+</output_format>
+
+<example>
+<description>
+最近迷雾森林中的史莱姆数量激增，威胁到了附近村民的安全。村长委托公会派遣冒险者前往清理。史莱姆虽然攻击力不强，但数量众多，请务必小心。完成任务后，村民们会非常感激。
+</description>
+
+<guide>
+前往迷雾森林，消灭5只史莱姆，然后返回公会提交任务
+</guide>
+</example>
+
+现在生成：`;
+
+    let responseText = '';
+    await window.dzmm.completions(
+      {
+        model: this.responseModel,
+        messages: [{ role: 'user', content: prompt }],
+        maxTokens: 500
+      },
+      (content, done) => {
+        responseText = content;
+      }
+    );
+
+    // 解析详情
+    const descMatch = responseText.match(/<description>([\s\S]*?)<\/description>/);
+    const guideMatch = responseText.match(/<guide>([\s\S]*?)<\/guide>/);
+
+    if (!descMatch || !guideMatch) {
+      console.error('任务详情解析失败');
+      alert('任务详情生成失败，请重试');
+      return;
+    }
+
+    // 设置当前任务
+    this.currentQuest = {
+      ...quest,
+      description: descMatch[1].trim(),
+      guide: guideMatch[1].trim(),
+      status: QUEST_STATUS.IN_PROGRESS
+    };
+
+    this.questList = [];
+    this.addLog(`接取任务：${quest.title}`);
+
+  } catch (error) {
+    console.error('任务详情生成失败:', error);
+    alert('任务详情生成失败：' + error.message);
+  } finally {
+    this.questGenerating = false;
+  }
+},
+
+// 设置任务状态
+setQuestStatus(status) {
+  if (!this.currentQuest) return;
+  this.currentQuest.status = status;
+  console.log(`任务状态变更为：${status}`);
+},
+
+// 放弃任务
+abandonQuest() {
+  if (!this.currentQuest) return;
+
+  const fee = 50; // 手续费
+  if (this.player.gold < fee) {
+    alert('金币不足，无法支付放弃任务的手续费');
+    return;
+  }
+
+  if (!confirm(`放弃任务将扣除${fee}金币手续费，确定要放弃吗？`)) {
+    return;
+  }
+
+  this.player.gold -= fee;
+  this.addLog(`放弃任务：${this.currentQuest.title}，扣除${fee}金币`);
+
+  // 重置任务系统
+  this.currentQuest = null;
+  this.questList = [];
+  this.generatedQuestIds = [];
+},
+
+// 提交任务
+async submitQuest() {
+  if (!this.currentQuest || this.questSubmitting) return;
+
+  this.questSubmitting = true;
+  this.actionLocked = true;
+  this.loadingText = '正在提交任务...';
+
+  try {
+    // 步骤1：生成提交剧情（正文模型）
+    const submitPrompt = `你是奇幻RPG游戏的叙事者。玩家正在向冒险者公会提交任务。
+
+**当前状态**：
+角色：${this.player.name}（${this.player.className}）
+等级：${this.player.level}
+
+**任务信息**：
+任务：${this.currentQuest.title}
+描述：${this.currentQuest.description}
+执行提示：${this.currentQuest.guide}
+
+**最近行动**：
+${(await this.getRecentHistory(3)).map(msg => msg.content).join('\n')}
+
+**当前行动**：玩家返回冒险者公会，申请提交任务
+
+**要求**：
+1. 描述玩家与公会接待员的对话（100-200字）
+2. 接待员会询问任务完成情况
+3. 玩家需要汇报自己的行动和成果
+4. 对话要自然、真实
+
+现在开始讲述：`;
+
+    let storyContent = '';
+    await window.dzmm.completions(
+      {
+        model: this.storyModel,
+        messages: [{ role: 'user', content: submitPrompt }],
+        maxTokens: 500
+      },
+      (content, done) => {
+        storyContent = content;
+        this.storyText = `<p>${storyContent.replace(/\n\n/g, '</p><p>')}</p>`;
+      }
+    );
+
+    // 步骤2：AI判断任务完成度（响应模型）
+    const judgePrompt = `你是冒险者公会的任务审核员。请根据玩家的汇报，判断任务是否完成。
+
+<quest>
+任务：${this.currentQuest.title}
+类型：${QUEST_TYPES[this.currentQuest.type].name}
+描述：${this.currentQuest.description}
+要求：${this.currentQuest.guide}
+</quest>
+
+<player_report>
+${storyContent}
+</player_report>
+
+<rules>
+1. 根据对话内容判断任务完成情况
+2. 讨伐任务：需要明确击败目标
+3. 护送任务：需要目标安全抵达
+4. 采集任务：需要收集到物品
+5. 其他任务：根据描述合理判断
+
+判断标准：
+- 完全完成：玩家明确完成了所有要求
+- 部分完成：玩家完成了部分要求
+- 未完成：玩家没有完成要求或没有相关行动
+</rules>
+
+<output_format>
+###RESULT
+完成度:完全完成/部分完成/未完成
+原因:简要说明（20字内）
+###END
+</output_format>
+
+现在判断：`;
+
+    let judgeResult = '';
+    await window.dzmm.completions(
+      {
+        model: this.responseModel,
+        messages: [{ role: 'user', content: judgePrompt }],
+        maxTokens: 200
+      },
+      (content, done) => {
+        judgeResult = content;
+      }
+    );
+
+    console.log('===== 任务判定结果 =====');
+    console.log(judgeResult);
+
+    // 解析判定结果
+    const resultMatch = judgeResult.match(/完成度:(.*?)\n/);
+    const reasonMatch = judgeResult.match(/原因:(.*?)\n/);
+
+    const completion = resultMatch ? resultMatch[1].trim() : '未完成';
+    const reason = reasonMatch ? reasonMatch[1].trim() : '';
+
+    // 步骤3：结算奖励
+    if (completion === '完全完成') {
+      // 全额奖励
+      this.player.gold += this.currentQuest.goldReward;
+      this.addAdventurerExp(this.currentQuest.expReward);
+
+      this.addLog(`✅ 任务完成！获得${this.currentQuest.goldReward}金币和${this.currentQuest.expReward}冒险者经验`);
+
+      // 添加到历史
+      this.questHistory.push({
+        ...this.currentQuest,
+        completedAt: new Date().toISOString()
+      });
+
+      // 追加结算剧情
+      this.storyText += `<p style="color: #4caf50; font-weight: bold;">任务完成！你获得了${this.currentQuest.goldReward}金币和${this.currentQuest.expReward}点冒险者经验。</p>`;
+
+    } else if (completion === '部分完成') {
+      // 50%奖励
+      const halfGold = Math.floor(this.currentQuest.goldReward * 0.5);
+      const halfExp = Math.floor(this.currentQuest.expReward * 0.5);
+
+      this.player.gold += halfGold;
+      this.addAdventurerExp(halfExp);
+
+      this.addLog(`⚠️ 任务部分完成：${reason}。获得${halfGold}金币和${halfExp}冒险者经验`);
+
+      this.storyText += `<p style="color: #f39c12; font-weight: bold;">任务部分完成（${reason}）。你获得了${halfGold}金币和${halfExp}点冒险者经验。</p>`;
+
+    } else {
+      // 无奖励
+      this.addLog(`❌ 任务未完成：${reason}`);
+      this.storyText += `<p style="color: #e74c3c; font-weight: bold;">任务未完成（${reason}）。请继续努力完成任务要求。</p>`;
+      return; // 不重置任务，让玩家继续尝试
+    }
+
+    // 保存到chat历史
+    await window.dzmm.chat.insert(null, [
+      { role: 'user', content: '提交任务：' + this.currentQuest.title },
+      { role: 'assistant', content: storyContent }
+    ]);
+
+    // 重置任务系统
+    this.currentQuest = null;
+    this.questList = [];
+    this.generatedQuestIds = [];
+
+  } catch (error) {
+    console.error('任务提交失败:', error);
+    alert('任务提交失败：' + error.message);
+  } finally {
+    this.questSubmitting = false;
+    this.actionLocked = false;
+  }
+},
+
+// 添加冒险者经验
+addAdventurerExp(exp) {
+  this.adventurerExp += exp;
+
+  // 检查升级
+  const ranks = Object.keys(ADVENTURER_RANKS);
+  const currentIndex = ranks.indexOf(this.adventurerRank);
+
+  if (currentIndex < ranks.length - 1) {
+    const nextRank = ranks[currentIndex + 1];
+    const nextRequired = ADVENTURER_RANKS[nextRank].expRequired;
+
+    if (this.adventurerExp >= nextRequired) {
+      this.adventurerRank = nextRank;
+      this.adventurerExpToNext = currentIndex + 2 < ranks.length
+        ? ADVENTURER_RANKS[ranks[currentIndex + 2]].expRequired
+        : 99999;
+
+      this.addLog(`🎉 冒险者等级提升至${ADVENTURER_RANKS[nextRank].name}！`);
+      alert(`🎉 恭喜！你的冒险者等级提升至${ADVENTURER_RANKS[nextRank].name}！`);
+    }
+  }
+},
+
+// 获取最近N条历史
+async getRecentHistory(count = 3) {
+  const allMessages = await window.dzmm.chat.list();
+  return allMessages.slice(-count);
+},
+
+
+// 直接升级（不重置经验）
+levelUpDirect() {
+  this.player.level++;
+  this.player.expToNext = Math.floor(GAME_CONFIG.baseExpToLevel * Math.pow(GAME_CONFIG.expGrowthRate, this.player.level - 1));
+
+  const hpGain = 20;
+  const mpGain = 10;
+  const atkGain = 3;
+  const defGain = 2;
+
+  this.player.maxHp += hpGain;
+  this.player.maxMp += mpGain;
+  this.player.atk += atkGain;
+  this.player.def += defGain;
+  this.player.hp = this.player.maxHp;
+  this.player.mp = this.player.maxMp;
+
+  this.addLog(`🎉 升级了！等级提升至${this.player.level}！`);
+  console.log(`升级至 Lv.${this.player.level}，下一级需要 ${this.player.expToNext} 经验`);
+},
+
+// ========================================================================
+// 战斗胜利奖励（新增函数）
+// ========================================================================
+winBattleReward() {
+  if (!this.currentEnemy) return;
+
+  const expGain = this.currentEnemy.exp;
+  const goldGain = this.currentEnemy.gold;
+
+  // 直接计算奖励
+  this.addExperience(expGain);
+  this.player.gold += goldGain;
+
+  this.addLog(`击败${this.currentEnemy.name}！获得${expGain}EXP和${goldGain}金币`);
+
+  // 30%概率掉落物品
+  if (Math.random() < 0.3) {
+    const dropItem = 'potion';
+    this.addItem(dropItem, 1);
+    this.addLog(`获得了${ITEMS[dropItem].name}！`);
+  }
+
+  // 结束战斗
+  this.inBattle = false;
+  this.currentEnemy = null;
+},
+
+
+// ========================================================================
+// 解析并注册新内容（优化版）
+// ========================================================================
+parseNewContent(responseText) {
+  try {
+    const newMarker = '###NEW';
+    const endMarker = '###END';
+    const newIndex = responseText.indexOf(newMarker);
+    const endIndex = responseText.indexOf(endMarker, newIndex + newMarker.length);
+
+    if (newIndex === -1 || endIndex === -1) {
+      console.warn('未找到NEW标记');
+      return;
+    }
+
+    const newBlock = responseText.slice(newIndex + newMarker.length, endIndex).trim();
+    const lines = newBlock.split('\n');
+
+    console.log('===== 新内容解析 =====');
+    console.log(newBlock);
+
+    lines.forEach(line => {
+      const [key, value] = line.split(':').map(s => s.trim());
+
+      // 解析新物品（简化格式：ID,名字,emoji,类型,效果,数值,描述）
+      if (key === '物品' && value !== '无') {
+        try {
+          const parts = value.split(',').map(s => s.trim());
+          if (parts.length >= 7) {
+            const [id, name, icon, type, effect, val, desc] = parts;
+
+            // 检查是否已存在
+            if (ITEMS[id] || this.customItems[id]) {
+              console.log(`物品${id}已存在，跳过注册`);
+              return;
+            }
+
+            const itemData = {
+              id, name, icon, type, effect,
+              value: parseInt(val) || 0,
+              desc,
+              price: parseInt(val) * 2 || 20  // 自动计算价格
+            };
+
+            this.customItems[id] = itemData;
+            console.log(`✅ 注册新物品: ${name} (${id})`);
+            this.saveCustomContent();
+          }
+        } catch (error) {
+          console.error('解析新物品失败:', error, value);
+        }
+      }
+
+      // 解析新敌人（简化格式：ID,名字,emoji,HP,攻击,防御,经验,金币,描述）
+      if (key === '敌人' && value !== '无') {
+        try {
+          const parts = value.split(',').map(s => s.trim());
+          if (parts.length >= 9) {
+            const [id, name, icon, hp, atk, def, exp, gold, desc] = parts;
+
+            // 检查是否已存在
+            if (ENEMIES[id] || this.customEnemies[id]) {
+              console.log(`敌人${id}已存在，跳过注册`);
+              return;
+            }
+
+            const enemyData = {
+              id, name, icon,
+              hp: parseInt(hp) || 50,
+              atk: parseInt(atk) || 10,
+              def: parseInt(def) || 5,
+              exp: parseInt(exp) || 30,
+              gold: parseInt(gold) || 20,
+              desc
+            };
+
+            this.customEnemies[id] = enemyData;
+            console.log(`✅ 注册新敌人: ${name} (${id})`);
+            this.saveCustomContent();
+          }
+        } catch (error) {
+          console.error('解析新敌人失败:', error, value);
+        }
+      }
+
+      // 解析新装备（简化格式：ID,名字,emoji,类型,攻击,防御,描述）
+      if (key === '装备' && value !== '无') {
+        try {
+          const parts = value.split(',').map(s => s.trim());
+          if (parts.length >= 7) {
+            const [id, name, icon, type, atk, def, desc] = parts;
+
+            // 检查是否已存在
+            if (ITEMS[id] || this.customEquipment[id]) {
+              console.log(`装备${id}已存在，跳过注册`);
+              return;
+            }
+
+            const equipData = {
+              id, name, icon, type,
+              atk: parseInt(atk) || 0,
+              def: parseInt(def) || 0,
+              desc,
+              price: (parseInt(atk) + parseInt(def)) * 10 || 50
+            };
+
+            this.customEquipment[id] = equipData;
+            console.log(`✅ 注册新装备: ${name} (${id})`);
+            this.saveCustomContent();
+          }
+        } catch (error) {
+          console.error('解析新装备失败:', error, value);
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('新内容解析失败:', error);
+  }
+},
+
+// ========================================================================
+// 保存自定义内容到KV
+// ========================================================================
+async saveCustomContent() {
+  try {
+    await window.dzmm.kv.put('rpg_custom_items', JSON.stringify(this.customItems));
+    await window.dzmm.kv.put('rpg_custom_enemies', JSON.stringify(this.customEnemies));
+    await window.dzmm.kv.put('rpg_custom_equipment', JSON.stringify(this.customEquipment));
+    console.log('自定义内容已保存');
+  } catch (error) {
+    console.error('保存自定义内容失败:', error);
+  }
+},
+
+// ========================================================================
+// 加载自定义内容（游戏启动时调用）
+// ========================================================================
+async loadCustomContent() {
+  try {
+    const items = await window.dzmm.kv.get('rpg_custom_items');
+    const enemies = await window.dzmm.kv.get('rpg_custom_enemies');
+    const equipment = await window.dzmm.kv.get('rpg_custom_equipment');
+
+    if (items?.value) {
+      this.customItems = JSON.parse(items.value);
+      console.log(`加载${Object.keys(this.customItems).length}个自定义物品`);
+    }
+
+    if (enemies?.value) {
+      this.customEnemies = JSON.parse(enemies.value);
+      console.log(`加载${Object.keys(this.customEnemies).length}个自定义敌人`);
+    }
+
+    if (equipment?.value) {
+      this.customEquipment = JSON.parse(equipment.value);
+      console.log(`加载${Object.keys(this.customEquipment).length}个自定义装备`);
+    }
+  } catch (error) {
+    console.warn('加载自定义内容失败:', error);
+  }
+},
+
+
+
+ // ========================================================================
+// AI触发战斗（支持自定义敌人）
+// ========================================================================
+triggerBattleFromAI(enemyId) {
+  const enemyData = this.getEnemyData(enemyId);  // ← 修改为使用新函数
+
+  if (!enemyData) {
+    console.error(`无效的敌人ID: ${enemyId}`);
+    return;
+  }
+
+  console.log(`AI触发战斗: ${enemyData.name}`);
+
+  this.currentEnemy = {
+    ...enemyData,
+    hp: enemyData.hp,
+    maxHp: enemyData.hp
+  };
+
+  this.inBattle = true;
+  this.addLog(`遭遇${this.currentEnemy.name}！`);
+},
+
+        // 战斗系统
+        // ========================================================================
+        async attack() {
+          if (!this.inBattle || !this.currentEnemy) return;
+
+          const baseDamage = Math.max(1, this.player.atk - this.currentEnemy.def);
+          const isCrit = Math.random() < GAME_CONFIG.criticalRate;
+          const damage = Math.floor(baseDamage * (isCrit ? 2 : 1));
+
+          this.currentEnemy.hp = Math.max(0, this.currentEnemy.hp - damage);
+
+          this.addLog(`攻击${this.currentEnemy.name}，造成${damage}点伤害${isCrit ? '（暴击！）' : ''}`);
+
+          await this.requestAI('attack', { damage, userAction: '普通攻击' });
+
+          if (this.currentEnemy.hp <= 0) {
+            await this.winBattle();
+            return;
+          }
+
+          await this.enemyTurn();
+        },
+
+// ========================================================================
+// 使用技能（修复版）
+// ========================================================================
+async useSkill(skill) {
+  if (!this.inBattle || !this.currentEnemy) return;
+  if (this.player.mp < skill.cost) return;
+
+  // 先扣除MP
+  this.player.mp -= skill.cost;
+
+  const baseDamage = Math.floor(this.player.atk * skill.damage);
+  const isCrit = Math.random() < (GAME_CONFIG.criticalRate + (skill.crit || 0));
+  const damage = Math.floor(baseDamage * (isCrit ? 2 : 1));
+
+  this.currentEnemy.hp = Math.max(0, this.currentEnemy.hp - damage);
+
+  this.addLog(`使用${skill.name}，造成${damage}点伤害！`);
+
+  // ===== 修复：传递action标识，跳过MP更新 =====
+  await this.requestAI('use_skill', {
+    skillName: skill.name,
+    damage,
+    userAction: `使用技能${skill.name}`
+  });
+
+  if (this.currentEnemy.hp <= 0) {
+    // 战斗胜利由响应模型判定
+    return;
+  }
+
+  await this.enemyTurn();
+},
+
+        async enemyTurn() {
+          await new Promise(resolve => setTimeout(resolve, 800));
+
+          const enemyDamage = Math.max(1, this.currentEnemy.atk - this.player.def);
+          this.player.hp = Math.max(0, this.player.hp - enemyDamage);
+
+          this.addLog(`${this.currentEnemy.name}攻击，受到${enemyDamage}点伤害！`);
+
+          await this.requestAI('enemy_attack', { enemyDamage, userAction: `${this.currentEnemy.name}的回合` });
+
+          if (this.player.hp <= 0) {
+            await this.gameOver();
+          }
+        },
+
+// ========================================================================
+// 战斗胜利（旧函数，改为只处理AI叙述）
+// ========================================================================
+async winBattle() {
+  // 奖励已由winBattleReward()处理，这里只负责AI叙述
+  const defeatedEnemy = this.currentEnemy.name;
+  await this.requestAI('win_battle', { userAction: `击败${defeatedEnemy}` });
+},
+
+        async flee() {
+          if (Math.random() < GAME_CONFIG.fleeSuccessRate) {
+            this.addLog('成功逃跑了！');
+            this.inBattle = false;
+            this.currentEnemy = null;
+            await this.requestAI('flee_success', { userAction: '逃跑' });
+          } else {
+            this.addLog('逃跑失败！');
+            await this.requestAI('flee_failed', { userAction: '逃跑失败' });
+            await this.enemyTurn();
+          }
+        },
+
+        async levelUp() {
+          this.player.level++;
+          this.player.exp = 0;
+          this.player.expToNext = Math.floor(GAME_CONFIG.baseExpToLevel * Math.pow(GAME_CONFIG.expGrowthRate, this.player.level - 1));
+
+          const hpGain = 20;
+          const mpGain = 10;
+          const atkGain = 3;
+          const defGain = 2;
+
+          this.player.maxHp += hpGain;
+          this.player.maxMp += mpGain;
+          this.player.atk += atkGain;
+          this.player.def += defGain;
+          this.player.hp = this.player.maxHp;
+          this.player.mp = this.player.maxMp;
+
+          this.addLog(`🎉 升级了！等级提升至${this.player.level}！`);
+        },
+
+        async gameOver() {
+          this.addLog('你被击败了...');
+          this.storyText = '<p style="color: #ff4444; font-size: 24px;">游戏结束</p><p>请从菜单读取存档或重新开始</p>';
+          this.actionLocked = true;
+        },
+
+        // ========================================================================
+        // ========================================================================
+        // 探索系统（已修复）
+        // ========================================================================
+        async explore() {
+          const location = LOCATIONS[this.player.location];
+
+          if (location.enemies.length === 0) {
+            this.addLog('这里很安全，没有遇到敌人');
+            await this.requestAI('explore_safe', { userAction: '探索当前区域' });
+            return;
+          }
+
+          if (Math.random() < 0.6) {
+            const enemyId = location.enemies[Math.floor(Math.random() * location.enemies.length)];
+            const enemyData = ENEMIES[enemyId];
+
+            this.currentEnemy = {
+              ...enemyData,
+              hp: enemyData.hp,
+              maxHp: enemyData.hp
+            };
+
+            this.inBattle = true;
+            this.addLog(`遇到了${this.currentEnemy.name}！`);
+            await this.requestAI('encounter_enemy', { userAction: '探索当前区域' });
+          } else {
+            const goldFound = Math.floor(Math.random() * 50) + 20;
+            this.player.gold += goldFound;
+            this.addLog(`发现了宝箱！获得${goldFound}金币`);
+            await this.requestAI('find_treasure', { reward: `${goldFound}金币`, userAction: '探索当前区域' });
+          }
+        },
+
+        async move() {
+          if (this.targetLocation === this.player.location) {
+            this.addLog('你已经在这里了');
+            return;
+          }
+
+          const targetName = LOCATIONS[this.targetLocation].name;
+          this.player.location = this.targetLocation;
+          this.currentScene = LOCATIONS[this.targetLocation].scene;
+          this.addLog(`前往${targetName}`);
+
+          await this.requestAI('move_location', { userAction: `前往${targetName}` });
+        },
+
+        async rest() {
+          const hpRestore = Math.floor(this.player.maxHp * GAME_CONFIG.restHealPercent);
+          const mpRestore = Math.floor(this.player.maxMp * GAME_CONFIG.restHealPercent);
+
+          this.player.hp = Math.min(this.player.maxHp, this.player.hp + hpRestore);
+          this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRestore);
+
+          this.addLog(`休息恢复了${hpRestore}HP和${mpRestore}MP`);
+          await this.requestAI('rest', { userAction: '休息恢复' });
+        },
+
+        async talk() {
+          this.addLog('与NPC交谈中...');
+          await this.requestAI('talk_npc', { userAction: '与NPC对话' });
+        },
+
+        // ========================================================================
+        // 物品系统（已优化）
+        // ========================================================================
+        showItemModal(itemId) {
+          this.selectedItemId = itemId;
+          this.selectedItemData = ITEMS[itemId];
+          this.itemModalOpen = true;
+        },
+
+// ========================================================================
+// 确认使用物品（支持自定义物品）
+// ========================================================================
+confirmUseItem() {
+  if (!this.selectedItemId) return;
+
+  const item = this.getItemData(this.selectedItemId);  // ← 修改为使用新函数
+  if (!item) return;
+
+  if (!this.player.inventory[this.selectedItemId] || this.player.inventory[this.selectedItemId] <= 0) {
+    alert('没有这个物品');
+    return;
+  }
+
+  this.player.inventory[this.selectedItemId]--;
+  if (this.player.inventory[this.selectedItemId] === 0) {
+    delete this.player.inventory[this.selectedItemId];
+  }
+
+  // 应用物品效果
+  if (item.effect === 'heal') {
+    this.player.hp = Math.min(this.player.maxHp, this.player.hp + item.value);
+    this.addLog(`使用${item.name}，恢复${item.value}HP`);
+  } else if (item.effect === 'restore_mp') {
+    this.player.mp = Math.min(this.player.maxMp, this.player.mp + item.value);
+    this.addLog(`使用${item.name}，恢复${item.value}MP`);
+  } else if (item.effect === 'full_heal') {
+    this.player.hp = this.player.maxHp;
+    this.player.mp = this.player.maxMp;
+    this.addLog(`使用${item.name}，完全恢复！`);
+  }
+
+  this.itemModalOpen = false;
+},
+
+        addItem(itemId, count = 1) {
+          if (!this.player.inventory[itemId]) {
+            this.player.inventory[itemId] = 0;
+          }
+          this.player.inventory[itemId] += count;
+        },
+
+// ========================================================================
+// 获取物品数据（支持自定义物品）
+// ========================================================================
+getItemData(itemId) {
+  // 优先查找预设物品
+  if (ITEMS[itemId]) {
+    return ITEMS[itemId];
+  }
+  // 查找自定义物品
+  if (this.customItems[itemId]) {
+    return this.customItems[itemId];
+  }
+  // 查找自定义装备
+  if (this.customEquipment[itemId]) {
+    return this.customEquipment[itemId];
+  }
+  return null;
+},
+
+// ========================================================================
+// 获取敌人数据（支持自定义敌人）
+// ========================================================================
+getEnemyData(enemyId) {
+  // 优先查找预设敌人
+  if (ENEMIES[enemyId]) {
+    return ENEMIES[enemyId];
+  }
+  // 查找自定义敌人
+  if (this.customEnemies[enemyId]) {
+    return this.customEnemies[enemyId];
+  }
+  return null;
+},
+
+        getItemDescription(itemId) {
+          const item = ITEMS[itemId];
+          return item?.desc || '无描述';
+        },
+
+        // ========================================================================
+        // 绘图系统（新增）
+        // ========================================================================
+        async generateArt() {
+          this.generatingArt = true;
+          this.artError = '';
+
+          try {
+            // 1. 构建场景信息
+            const sceneInfo = this.buildSceneInfo();
+
+            // 2. 生成提示词
+            this.loadingText = '正在生成提示词...';
+            const prompt = await this.generatePrompt(sceneInfo);
+
+            // 3. 拼接质量词
+            const fullPrompt = `${prompt}, ${QUALITY_TAGS}`;
+
+            // 4. 调用绘图API
+            this.loadingText = '正在生成图片...';
+            const result = await window.dzmm.draw.generate({
+              prompt: fullPrompt,
+              negativePrompt: NEGATIVE_PROMPT,
+              model: 'anime',
+              dimension: '2:3'
+            });
+
+            if (result.images && result.images.length > 0) {
+              // 5. 保存到画廊
+              await this.saveToGallery(result.images[0], this.getTargetName(), prompt);
+
+              alert('生成成功！已保存到画廊');
+              this.showArtGenerator = false;
+              this.artRequirement = '';
+            } else {
+              throw new Error('生成失败，未返回图片');
+            }
+          } catch (error) {
+            console.error('生成失败:', error);
+            this.artError = error.message || '生成失败，请重试';
+          } finally {
+            this.generatingArt = false;
+          }
+        },
+
+        buildSceneInfo() {
+          let targetInfo = '';
+
+          if (this.artTarget === 'player') {
+            const genderText = this.player.gender === 'male' ? 'male' : 'female';
+            const appearanceText = this.player.appearance || 'no specific appearance';
+            targetInfo = `Character: ${this.player.name}, Gender: ${genderText}, Class: ${this.player.className}, Appearance: ${appearanceText}`;
+          } else if (this.artTarget === 'npc' && this.lastNPC) {
+            targetInfo = `NPC: ${this.lastNPC}`;
+          } else if (this.artTarget === 'enemy' && this.currentEnemy) {
+            targetInfo = `Enemy: ${this.currentEnemy.name}`;
+          }
+
+          const sceneText = this.storyText.replace(/<[^>]*>/g, '').substring(0, 500);
+          const customReq = this.artRequirement || 'no specific requirement';
+
+          return `${targetInfo}\nCurrent scene: ${sceneText}\nCustom requirement: ${customReq}`;
+        },
+
+        async generatePrompt(sceneInfo) {
+          try {
+            const systemPrompt = `You are a professional AI art prompt generator. Generate an English prompt for anime-style character illustration based on the following information.
+
+${sceneInfo}
+
+Output format:
+###PROMPT
+[English prompt, comma-separated keywords, max 200 words]
+###END
+
+Requirements:
+- Only output English prompt, no explanation
+- Describe character appearance, clothing, pose, expression
+- Describe background and atmosphere
+- Use comma-separated keywords
+- Focus on visual details
+
+Example:
+###PROMPT
+1girl, long silver hair, blue eyes, wearing white dress, gentle smile, standing in forest, sunlight filtering through trees, fantasy atmosphere, detailed face, beautiful lighting
+###END`;
+
+            let fullContent = '';
+
+            await window.dzmm.completions(
+              { model: this.responseModel, messages: [{ role: 'user', content: systemPrompt }], maxTokens: 500 },
+              (content, done) => {
+                fullContent = content;
+              }
+            );
+
+            // 解析提示词
+            const promptMarker = '###PROMPT';
+            const endMarker = '###END';
+            const promptIndex = fullContent.indexOf(promptMarker);
+            const endIndex = fullContent.indexOf(endMarker, promptIndex + promptMarker.length);
+
+            if (promptIndex !== -1 && endIndex !== -1) {
+              const prompt = fullContent.slice(promptIndex + promptMarker.length, endIndex).trim();
+              console.log('生成的提示词:', prompt);
+              return prompt;
+            } else {
+              throw new Error('提示词格式错误');
+            }
+          } catch (error) {
+            console.error('生成提示词失败:', error);
+            throw new Error('提示词生成失败');
+          }
+        },
+
+        getTargetName() {
+          if (this.artTarget === 'player') {
+            return this.player.name;
+          } else if (this.artTarget === 'npc' && this.lastNPC) {
+            return this.lastNPC;
+          } else if (this.artTarget === 'enemy' && this.currentEnemy) {
+            return this.currentEnemy.name;
+          }
+          return '未知';
+        },
+
+        async saveToGallery(imageUrl, target, prompt) {
+          const imageData = {
+            id: `img-${Date.now()}`,
+            url: imageUrl,
+            target,
+            prompt,
+            timestamp: new Date().toLocaleString('zh-CN')
+          };
+
+          this.gallery.push(imageData);
+
+          // 保存到KV
+          try {
+            await window.dzmm.kv.put('rpg_gallery', JSON.stringify(this.gallery));
+          } catch (error) {
+            console.warn('保存画廊失败:', error);
+          }
+        },
+
+        async loadGallery() {
+          try {
+            const data = await window.dzmm.kv.get('rpg_gallery');
+            if (data?.value) {
+              this.gallery = JSON.parse(data.value);
+            }
+          } catch (error) {
+            console.warn('加载画廊失败:', error);
+          }
+        },
+
+        viewImage(img) {
+          this.viewingImage = img;
+        },
+
+        async deleteImage(imageId) {
+          if (!confirm('确定要删除这张图片吗？')) return;
+
+          this.gallery = this.gallery.filter(img => img.id !== imageId);
+
+          try {
+            await window.dzmm.kv.put('rpg_gallery', JSON.stringify(this.gallery));
+            alert('删除成功');
+          } catch (error) {
+            console.error('删除失败:', error);
+            alert('删除失败');
+          }
+        },
+
+        // ========================================================================
+        // ========================================================================
+        // 工具函数
+        // ========================================================================
+        addLog(message) {
+          this.adventureLog.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+          if (this.adventureLog.length > 20) {
+            this.adventureLog.pop();
+          }
+        },
+
+        // ========================================================================
+        // 自由输入行动（修复"发送"按钮）
+        // ========================================================================
+        async customAction() {
+          const input = this.playerInput.trim();
+          if (!input) {
+            this.addLog('请输入行动内容');
+            return;
+          }
+
+          this.playerInput = '';
+          this.addLog(`自定义行动: ${input}`);
+
+          await this.requestAI('custom_action', { userAction: input });
+        }
+      });
+
+      // 修复初始化时机
+      queueMicrotask(() => {
+        if (Alpine.store('rpg')?.init) {
+          Alpine.store('rpg').init();
+        }
+      });
+    });
+  </script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* 加载屏幕 */
+    .loading-screen {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .loading-content {
+      text-align: center;
+    }
+
+    .loading-spinner {
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 20px;
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #4caf50;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* 角色创建 */
+    .char-creation {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .creation-card {
+      max-width: 900px;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .creation-card h1 {
+      font-size: 36px;
+      margin-bottom: 30px;
+      text-align: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .creation-card h2 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* 主菜单 */
+    .main-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .menu-option {
+      width: 100%;
+      padding: 20px;
+      font-size: 20px;
+      font-weight: bold;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .menu-option:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+
+    .model-selection {
+      margin-top: 20px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+    }
+
+    .model-selection label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    .model-selection select {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #fff;
+    }
+
+    /* 存档界面 */
+    .load-game-screen {
+      animation: fadeIn 0.3s;
+    }
+
+    .save-slots {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .save-slot {
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .save-slot:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: #4caf50;
+      transform: translateY(-2px);
+    }
+
+    .save-info {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .save-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .save-details {
+      display: flex;
+      gap: 15px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .save-time {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .empty-slot {
+      text-align: center;
+      padding: 20px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* 角色创建表单 */
+    .char-creation-form {
+      animation: fadeIn 0.3s;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #fff;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #4caf50;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .form-group small {
+      display: block;
+      margin-top: 5px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .gender-selection {
+      display: flex;
+      gap: 10px;
+    }
+
+    .gender-btn {
+      flex: 1;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 16px;
+    }
+
+    .gender-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .gender-btn.selected {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-color: #667eea;
+    }
+
+    .class-selection {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+    }
+
+    .class-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+    }
+
+    .class-card:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-3px);
+    }
+
+    .class-card.selected {
+      border-color: #4caf50;
+      background: rgba(76, 175, 80, 0.2);
+    }
+
+    .class-icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+
+    .class-name {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .class-desc {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 12px;
+    }
+
+    .class-stats {
+      display: flex;
+      justify-content: space-around;
+      font-size: 13px;
+    }
+
+    .start-btn,
+    .back-btn {
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+
+    .start-btn {
+      background: linear-gradient(135deg, #4caf50, #45a049);
+      color: #fff;
+    }
+
+    .start-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(76, 175, 80, 0.4);
+    }
+
+    .start-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .back-btn {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .back-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* 游戏主界面 */
+    .game-screen {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .menu-btn,
+    .art-btn {
+      position: fixed;
+      top: 20px;
+      padding: 12px 20px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.3s;
+      z-index: 100;
+      font-size: 16px;
+    }
+
+    .menu-btn {
+      left: 20px;
+    }
+
+    .art-btn {
+      right: 20px;
+    }
+
+    .menu-btn:hover,
+    .art-btn:hover {
+      background: rgba(0, 0, 0, 0.9);
+      border-color: #4caf50;
+      transform: translateY(-2px);
+    }
+
+/* 公会按钮（新增）*/
+.guild-btn {
+  position: fixed;
+  top: 20px;
+  right: 180px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s;
+  z-index: 100;
+  font-size: 16px;
+}
+
+.guild-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: #f39c12;
+  transform: translateY(-2px);
+}
+
+
+    /* 状态栏 */
+    .status-bar {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      margin-top: 60px;
+    }
+
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .player-name {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .player-class {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .player-level {
+      padding: 4px 12px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 12px;
+      font-weight: bold;
+    }
+
+    .player-stats {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 400px;
+    }
+
+    .stat-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .stat-label {
+      min-width: 60px;
+    }
+
+    .bar {
+      flex: 1;
+      height: 18px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .bar-fill.hp {
+      background: linear-gradient(90deg, #ff6b6b, #ee5a6f);
+    }
+
+    .bar-fill.mp {
+      background: linear-gradient(90deg, #4dabf7, #339af0);
+    }
+
+    .bar-fill.exp {
+      background: linear-gradient(90deg, #ffd43b, #fab005);
+    }
+
+    .stat-value {
+      min-width: 80px;
+      text-align: right;
+      font-size: 13px;
+    }
+
+    .player-resources {
+      display: flex;
+      gap: 20px;
+      font-size: 16px;
+    }
+
+    .resource {
+      padding: 8px 15px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+    }
+
+    /* 主要内容区 */
+    .main-content {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 20px;
+      padding: 20px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* 场景区域 */
+    .scene-area {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .scene-image {
+      height: 400px;
+      background-size: cover;
+      background-position: center;
+      border-radius: 15px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .enemy-display {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      animation: enemyAppear 0.5s ease-out;
+    }
+
+    @keyframes enemyAppear {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5);
+      }
+
+      to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+
+    .enemy-image {
+      margin-bottom: 15px;
+    }
+
+    .enemy-icon {
+      font-size: 120px;
+      filter: drop-shadow(0 0 20px rgba(255, 0, 0, 0.5));
+      animation: enemyFloat 2s ease-in-out infinite;
+    }
+
+    @keyframes enemyFloat {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    .enemy-info {
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+    }
+
+    .enemy-name {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #ff6b6b;
+    }
+
+    .enemy-hp-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .enemy-hp-bar .bar {
+      flex: 1;
+      height: 20px;
+    }
+
+    .story-box {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 25px;
+      min-height: 200px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .story-content {
+      font-size: 16px;
+      line-height: 1.8;
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .story-content p {
+      margin-bottom: 15px;
+    }
+
+    .loading {
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    /* 控制面板 */
+    .control-panel {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    .battle-actions,
+    .explore-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .battle-actions h3,
+    .explore-actions h3 {
+      margin-bottom: 10px;
+      font-size: 18px;
+      color: #4caf50;
+    }
+
+    .action-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .action-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .action-btn.flee {
+      background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+    }
+
+    .skills-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .skill-btn {
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      font-size: 14px;
+    }
+
+    .skill-btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: #4caf50;
+    }
+
+    .skill-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .skill-cost {
+      font-size: 12px;
+      color: #4dabf7;
+    }
+
+    .location-select {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .location-select label {
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .location-select select {
+      flex: 1;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .location-select button {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #4caf50, #45a049);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .free-input {
+      display: flex;
+      gap: 10px;
+      padding-top: 15px;
+      border-top: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .free-input input {
+      flex: 1;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .free-input input:focus {
+      outline: none;
+      border-color: #4caf50;
+    }
+
+    .free-input button {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    /* 菜单覆盖层 */
+    .menu-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .menu-panel {
+      max-width: 800px;
+      width: 100%;
+      max-height: 90vh;
+      background: rgba(0, 0, 0, 0.9);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .menu-panel h2 {
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .menu-tabs {
+      display: flex;
+      gap: 10px;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .menu-tab {
+      flex: 1;
+      min-width: 100px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: none;
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    .menu-tab:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .menu-tab.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+    }
+
+    .menu-content {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 500px;
+    }
+
+    .menu-page {
+      animation: fadeIn 0.3s;
+    }
+
+    .menu-page h3 {
+      margin-bottom: 15px;
+      font-size: 20px;
+      color: #4caf50;
+    }
+
+    /* 存档页 */
+    .save-slots-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .save-slot-menu {
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+    }
+
+    .save-info-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .save-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .save-action-btn {
+      flex: 1;
+      padding: 8px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    .save-action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .empty-slot-menu {
+      text-align: center;
+      padding: 20px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .empty-slot-menu button {
+      margin-top: 10px;
+    }
+
+    /* 背包页 */
+    .inventory-grid-menu {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 10px;
+    }
+
+    .item-card-menu {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .item-card-menu:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: #4caf50;
+      transform: translateY(-3px);
+    }
+
+    .item-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+    }
+
+    .item-name {
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .item-count {
+      font-size: 12px;
+      color: #ffd43b;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 14px;
+    }
+
+    /* 装备页 */
+    .equipment-slots-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .equip-slot-menu {
+      display: flex;
+      justify-content: space-between;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+    }
+
+    .equip-label {
+      font-weight: bold;
+    }
+
+    .equip-value {
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* 状态页 */
+    .status-details-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .status-row-menu {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+    }
+
+    /* 画廊页 */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 15px;
+    }
+
+    .gallery-item {
+      position: relative;
+      cursor: pointer;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+
+    .gallery-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .gallery-thumbnail {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+
+    .gallery-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .delete-btn {
+      padding: 5px 10px;
+      background: rgba(255, 0, 0, 0.7);
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .delete-btn:hover {
+      background: rgba(255, 0, 0, 0.9);
+    }
+
+    .close-menu-btn {
+      width: 100%;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .close-menu-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* 模态框 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+
+    .modal-content {
+      max-width: 500px;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content h3 {
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .item-detail {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .item-icon-large {
+      font-size: 80px;
+      margin-bottom: 15px;
+    }
+
+    .item-name-large {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .item-description {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 15px;
+    }
+
+    .item-count-display {
+      font-size: 16px;
+      color: #ffd43b;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .confirm-btn,
+    .cancel-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .confirm-btn {
+      background: linear-gradient(135deg, #4caf50, #45a049);
+      color: #fff;
+    }
+
+    .confirm-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(76, 175, 80, 0.4);
+    }
+
+    .confirm-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .cancel-btn {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .cancel-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .error-message {
+      margin-top: 15px;
+      padding: 10px;
+      background: rgba(255, 0, 0, 0.2);
+      border: 1px solid rgba(255, 0, 0, 0.5);
+      border-radius: 8px;
+      color: #ff6b6b;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    /* 图片查看器 */
+    .image-viewer {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+      padding: 20px;
+    }
+
+    .image-viewer-content {
+      max-width: 90%;
+      max-height: 90%;
+      position: relative;
+    }
+
+    .viewed-image {
+      max-width: 100%;
+      max-height: 80vh;
+      border-radius: 10px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .image-viewer-info {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 10px;
+      font-size: 14px;
+    }
+
+    .image-viewer-info p {
+      margin-bottom: 8px;
+    }
+
+    .image-viewer-info strong {
+      color: #4caf50;
+    }
+
+    .close-viewer-btn {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 0, 0, 0.7);
+      border: none;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .close-viewer-btn:hover {
+      background: rgba(255, 0, 0, 0.9);
+      transform: scale(1.1);
+    }
+
+    /* 响应式优化 */
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .status-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .player-stats {
+        max-width: 100%;
+      }
+
+      .scene-image {
+        height: 250px;
+      }
+
+      .skills-list {
+        grid-template-columns: 1fr;
+      }
+
+      .inventory-grid-menu {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* 自定义内容管理页 */
+    .custom-section {
+      margin-bottom: 30px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+    }
+
+    .custom-section h4 {
+      margin-bottom: 15px;
+      font-size: 16px;
+      color: #4caf50;
+    }
+
+    .custom-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .custom-item {
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+    }
+
+    .custom-item-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .custom-icon {
+      font-size: 24px;
+    }
+
+    .custom-name {
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .custom-id {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .custom-item-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .custom-item-desc {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 10px;
+    }
+
+    .delete-custom-btn {
+      padding: 6px 12px;
+      background: rgba(255, 0, 0, 0.3);
+      border: 1px solid rgba(255, 0, 0, 0.5);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .delete-custom-btn:hover {
+      background: rgba(255, 0, 0, 0.5);
+    }
+
+    .danger-btn {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255, 0, 0, 0.3);
+      border: 2px solid rgba(255, 0, 0, 0.5);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .danger-btn:hover {
+      background: rgba(255, 0, 0, 0.5);
+      transform: translateY(-2px);
+    }
+/* ========== 冒险者公会UI样式（新增）========== */
+
+/* 公会覆盖层 */
+.guild-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.guild-panel {
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  background: rgba(0, 0, 0, 0.95);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.guild-panel h2 {
+  text-align: center;
+  font-size: 28px;
+  margin-bottom: 10px;
+  color: #f39c12;
+}
+
+/* 冒险者等级展示 */
+.adventurer-rank-display {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.rank-badge {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.rank-letter {
+  font-size: 48px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.rank-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rank-name {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.rank-exp-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rank-exp-bar .bar {
+  flex: 1;
+  height: 20px;
+}
+
+.rank-exp-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 100px;
+  text-align: right;
+}
+
+/* 当前任务区域 */
+.current-quest-section {
+  animation: fadeIn 0.3s;
+}
+
+.current-quest-section h3 {
+  margin-bottom: 15px;
+  font-size: 20px;
+  color: #4caf50;
+}
+
+/* 任务卡片 */
+.quest-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.quest-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #f39c12;
+  transform: translateY(-2px);
+}
+
+.quest-card.active {
+  border-color: #4caf50;
+  cursor: default;
+}
+
+.quest-card.active:hover {
+  transform: none;
+}
+
+.quest-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.quest-type-icon {
+  font-size: 24px;
+}
+
+.quest-title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.quest-rank-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.quest-description {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 12px;
+}
+
+.quest-brief {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 10px;
+}
+
+.quest-guide {
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid #4caf50;
+  border-radius: 4px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.quest-rewards {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+  color: #ffd43b;
+}
+
+/* 任务状态按钮 */
+.quest-status-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.status-btn {
+  flex: 1;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 14px;
+}
+
+.status-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.status-btn.active {
+  background: rgba(76, 175, 80, 0.3);
+  border-color: #4caf50;
+}
+
+.status-btn.abandon {
+  background: rgba(255, 0, 0, 0.1);
+  border-color: rgba(255, 0, 0, 0.3);
+}
+
+.status-btn.abandon:hover {
+  background: rgba(255, 0, 0, 0.2);
+}
+
+.submit-quest-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  background: linear-gradient(135deg, #4caf50, #45a049);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.submit-quest-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(76, 175, 80, 0.4);
+}
+
+.submit-quest-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 可接取任务区域 */
+.available-quests-section {
+  animation: fadeIn 0.3s;
+}
+
+.quest-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.quest-list-header h3 {
+  font-size: 20px;
+  color: #4caf50;
+}
+
+.quest-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn-small {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.action-btn-small:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.action-btn-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.close-guild-btn {
+  width: 100%;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.close-guild-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 任务记录样式 */
+.quest-record-section {
+  margin-bottom: 20px;
+}
+
+.quest-record-section h4 {
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #4caf50;
+}
+
+.quest-record-card {
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.quest-record-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.quest-record-status {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.quest-record-rewards {
+  font-size: 13px;
+  color: #ffd43b;
+}
+
+.quest-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .guild-panel {
+    padding: 20px;
+  }
+
+  .adventurer-rank-display {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .rank-badge {
+    width: 60px;
+    height: 60px;
+  }
+
+  .rank-letter {
+    font-size: 36px;
+  }
+
+  .quest-status-buttons {
+    flex-direction: column;
+  }
+
+  .quest-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .action-btn-small {
+    width: 100%;
+  }
+}
+
+  </style>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</body>
+
+</html>

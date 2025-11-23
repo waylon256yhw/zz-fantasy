@@ -1,14 +1,54 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { RPGButton, RPGCard } from '../components/RPGComponents';
 import { Play, BookOpen, Star } from 'lucide-react';
 import { ASSET_BASE_URL } from '../constants';
+import { useGame } from '../src/contexts/GameContext';
+
+// DZMM Nalang Model Options
+const MODEL_OPTIONS = [
+  {
+    value: 'nalang-turbo-0826',
+    label: 'Turbo ⚡',
+    description: '最快速 | 32K上下文',
+    badge: '快速'
+  },
+  {
+    value: 'nalang-medium-0826',
+    label: 'Medium ⚖️',
+    description: '平衡性能 | 32K上下文',
+    badge: '平衡'
+  },
+  {
+    value: 'nalang-max-0826',
+    label: 'Max 🎯',
+    description: '强大推理 | 32K上下文',
+    badge: '推荐'
+  },
+  {
+    value: 'nalang-xl-0826',
+    label: 'XL 🧠',
+    description: '最强理解 | 32K上下文',
+    badge: '高级'
+  },
+  {
+    value: 'nalang-max-0826-16k',
+    label: 'Max-16K 🚀',
+    description: '快速强大 | 16K上下文',
+    badge: '高速'
+  },
+  {
+    value: 'nalang-xl-0826-16k',
+    label: 'XL-16K 🌟',
+    description: '快速稳定 | 16K上下文',
+    badge: '稳定'
+  },
+];
 
 const WelcomeScreen: React.FC = () => {
   const navigate = useNavigate();
-  const [model, setModel] = useState('Gemini 2.5 Flash');
-  const [dataEngine, setDataEngine] = useState('Aetheria Vector DB');
+  const { selectedModel, setSelectedModel } = useGame();
 
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-[#E6F3F5]">
@@ -61,9 +101,9 @@ const WelcomeScreen: React.FC = () => {
          ))}
       </div>
 
-      {/* Main Content - Scrollable Overlay */}
-      <div className="absolute inset-0 z-10 overflow-y-auto overflow-x-hidden">
-        <div className="min-h-full flex flex-col items-center justify-center p-6 md:p-8 py-12">
+      {/* Main Content - Overlay (lock scroll on mobile) */}
+      <div className="absolute inset-0 z-10 overflow-hidden md:overflow-y-auto md:overflow-x-hidden">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 pt-8 md:pt-12">
           
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -116,22 +156,32 @@ const WelcomeScreen: React.FC = () => {
             >
               <RPGCard className="bg-white/80 rotate-2 hover:rotate-0 transition-all duration-500 shadow-xl hover:shadow-[0_0_40px_rgba(255,209,102,0.4)] hover:scale-105">
                 <div className="absolute -top-3 -right-3 bg-jrpg-accent text-white px-3 py-1 rounded-full text-xs font-bold shadow-md">
-                  Ver 1.0
+                  DZMM API
                 </div>
-                <h3 className="font-serif font-bold text-jrpg-text mb-4 border-b-2 border-dashed border-jrpg-border pb-2">
-                  世界构造
+                <h3 className="font-serif font-bold text-jrpg-text mb-4 border-b-2 border-dashed border-jrpg-border pb-2 flex items-center justify-between">
+                  <span>AI 叙事引擎</span>
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-jrpg-text/60 mb-2">选择叙事引擎</label>
+                    <label className="block text-xs font-bold text-jrpg-text/60 mb-2 flex items-center gap-2 justify-between">
+                      <span>选择 AI 模型</span>
+                      {MODEL_OPTIONS.find(m => m.value === selectedModel) && (
+                        <span className="text-[10px] bg-jrpg-primary/15 text-jrpg-primary px-2 py-0.5 rounded-full">
+                          {MODEL_OPTIONS.find(m => m.value === selectedModel)?.badge}
+                        </span>
+                      )}
+                    </label>
                     <div className="relative">
-                      <select 
-                        value={model}
-                        onChange={(e) => setModel(e.target.value)}
-                        className="w-full appearance-none bg-jrpg-bg border-2 border-jrpg-border rounded-xl px-4 py-3 font-sans text-sm focus:border-jrpg-primary outline-none cursor-pointer"
+                      <select
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        className="w-full appearance-none bg-white border-2 border-jrpg-border rounded-xl px-4 py-2.5 pr-10 font-sans text-sm focus:border-jrpg-primary outline-none cursor-pointer transition-colors hover:border-jrpg-primary/50 shadow-inner"
                       >
-                        <option>Gemini 2.5 Flash</option>
-                        <option>Gemini 2.5 Pro</option>
+                        {MODEL_OPTIONS.map((model) => (
+                          <option key={model.value} value={model.value}>
+                            {model.label} - {model.description}
+                          </option>
+                        ))}
                       </select>
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-jrpg-text/40">
                         ▼
@@ -139,20 +189,20 @@ const WelcomeScreen: React.FC = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-jrpg-text/60 mb-2">选择数据引擎</label>
-                    <div className="relative">
-                      <select 
-                        value={dataEngine}
-                        onChange={(e) => setDataEngine(e.target.value)}
-                        className="w-full appearance-none bg-jrpg-bg border-2 border-jrpg-border rounded-xl px-4 py-3 font-sans text-sm focus:border-jrpg-primary outline-none cursor-pointer"
-                      >
-                        <option>Aetheria Vector DB</option>
-                        <option>Cloud Firestore</option>
-                        <option>Local Storage</option>
-                      </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-jrpg-text/40">
-                        ▼
+                  {/* Model Info Card */}
+                  <div className="bg-jrpg-bg/60 rounded-xl p-3 border border-jrpg-border/40 shadow-sm">
+                    <div className="text-[10px] text-jrpg-text/70 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">当前模型：</span>
+                        <span className="text-jrpg-text font-semibold">
+                          {MODEL_OPTIONS.find(m => m.value === selectedModel)?.label}
+                        </span>
+                      </div>
+                      <div className="text-jrpg-text/60">
+                        {MODEL_OPTIONS.find(m => m.value === selectedModel)?.description}
+                      </div>
+                      <div className="pt-1 border-t border-jrpg-border/30 text-jrpg-text/50">
+                        💡 推荐：Max / XL 获得更稳的叙事体验
                       </div>
                     </div>
                   </div>
