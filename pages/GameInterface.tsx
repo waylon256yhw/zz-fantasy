@@ -265,9 +265,8 @@ const GameInterface: React.FC = () => {
 
             // Apply pending location change (if user actually sent the travel message)
             if (pendingLocation) {
-              // Check if the user's last message contains the location name
-              const lastUserMessage = logs.filter(log => log.speaker === character?.name).pop();
-              if (lastUserMessage && lastUserMessage.text.includes(pendingLocation)) {
+              // Only apply if the actual sent action text包含目标地点名称
+              if (action.includes(pendingLocation)) {
                 setLocation(pendingLocation);
               }
               setPendingLocation(null);
@@ -721,11 +720,11 @@ const GameInterface: React.FC = () => {
                    alert('金币不足或没有可售物品');
                  }
                }} />}
-               {activeSheet === 'HONOR' && <HonorWall shopState={shopState} onClaim={claimOverlordProof} />}
-               {activeSheet === 'MAP' && <MapSheet location={location} onSelect={(loc) => {
+              {activeSheet === 'HONOR' && <HonorWall shopState={shopState} onClaim={claimOverlordProof} />}
+              {activeSheet === 'MAP' && <MapSheet location={location} onSelect={(loc) => {
                  setActiveSheet(null);
                  setPendingLocation(loc);
-                 setInput(`我前往了${loc}`);
+                 setInput(`我准备从${location}前往${loc}`);
                }} />}
             </motion.div>
           </motion.div>
