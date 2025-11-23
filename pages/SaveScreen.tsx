@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Character, ClassType, CharacterStats } from '../types';
-import { CLASS_LABELS, IMAGES, INITIAL_STATS } from '../constants';
+import { CLASS_LABELS, IMAGES, INITIAL_STATS, getCharacterImage } from '../constants';
 import { ChevronLeft, Save, Download, Trash2, Clock, MapPin, Settings, Music, Volume2, Monitor, CheckCircle, AlertCircle, X, ArrowLeft } from 'lucide-react';
 import { RPGButton } from '../components/RPGComponents';
 
 // Initial Mock Data
 const INITIAL_SAVES = [
-  { id: 1, name: '莱莎', classType: ClassType.ALCHEMIST, level: 12, location: '王都阿斯拉', time: '04:23:12', date: '2023/10/24', empty: false, avatar: IMAGES.char.test },
-  { id: 2, name: '克劳德', classType: ClassType.KNIGHT, level: 35, location: '古代遗迹深层', time: '12:45:00', date: '2023/10/20', empty: false, avatar: IMAGES.char.test },
+  // Ryza -> Alchemist (Mage visuals) Female
+  { id: 1, name: '莱莎', classType: ClassType.ALCHEMIST, level: 12, location: '王都阿斯拉', time: '04:23:12', date: '2023/10/24', empty: false, avatar: getCharacterImage(ClassType.ALCHEMIST, 'Female') },
+  // Cloud -> Knight (Warrior visuals) Male
+  { id: 2, name: '克劳德', classType: ClassType.KNIGHT, level: 35, location: '古代遗迹深层', time: '12:45:00', date: '2023/10/20', empty: false, avatar: getCharacterImage(ClassType.KNIGHT, 'Male') },
   { id: 3, empty: true },
   { id: 4, empty: true },
 ];
@@ -85,7 +87,7 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
           time: new Date().toLocaleTimeString('en-US', { hour12: false }),
           date: new Date().toLocaleDateString(),
           empty: false,
-          avatar: IMAGES.char.test // Use test char for now, normally currentCharacter.avatarUrl
+          avatar: currentCharacter.avatarUrl || getCharacterImage(currentCharacter.classType, currentCharacter.gender)
         };
       }
       return slot;
@@ -131,7 +133,7 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
         stats: INITIAL_STATS[slot.classType!] || { STR: 5, DEX: 5, INT: 5, CHA: 5, LUCK: 5 },
         level: slot.level!,
         gold: 1250, // Mock gold
-        avatarUrl: (slot as any).avatar || IMAGES.char.test,
+        avatarUrl: (slot as any).avatar || getCharacterImage(slot.classType!, 'Female'),
         appearance: "A weary traveler returned from the archives of time."
     };
 
@@ -142,8 +144,7 @@ const SaveScreen: React.FC<SaveScreenProps> = ({ currentCharacter, onLoadCharact
   };
 
   return (
-    // FIXED INSET-0: Use fixed position to anchor to viewport, ignoring parent scroll.
-    <div className="fixed inset-0 w-full bg-[#2C241F] flex items-center justify-center font-sans overflow-hidden md:p-8">
+    <div className="h-screen relative w-full bg-[#2C241F] flex items-center justify-center font-sans overflow-hidden md:p-8">
       {/* Background Ambience */}
       <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url(https://www.transparenttextures.com/patterns/wood-pattern.png)' }} />
       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-black/40 via-transparent to-black/60 pointer-events-none" />

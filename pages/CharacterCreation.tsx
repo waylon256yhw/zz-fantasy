@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { RPGCard, RPGInput } from '../components/RPGComponents';
 import { ClassType, CharacterStats, Character } from '../types';
-import { INITIAL_STATS, CLASS_DESCRIPTIONS, CLASS_LABELS, IMAGES } from '../constants';
+import { INITIAL_STATS, CLASS_DESCRIPTIONS, CLASS_LABELS, IMAGES, getCharacterImage } from '../constants';
 import { ChevronLeft, Sparkles, CheckCircle, Wand2, Palette, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
@@ -33,7 +32,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
       stats,
       level: 1,
       gold: 100,
-      avatarUrl: IMAGES.char.test,
+      avatarUrl: getCharacterImage(selectedClass, gender),
       appearance
     };
     onComplete(newChar);
@@ -58,12 +57,12 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
   // --- Render Functions (Use functions instead of components to prevent remounting/flickering) ---
 
   const renderVisualsSection = () => (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col gap-3 lg:gap-4">
         {/* Immersive Card - Matches GameInterface Style */}
-        <div className="relative flex-1 min-h-[400px] lg:min-h-0 bg-[#2C241F] rounded-[2.5rem] shadow-xl overflow-hidden border-[6px] border-white ring-1 ring-[#E6D7C3] group">
+        <div className="relative flex-1 min-h-[260px] lg:min-h-0 bg-[#2C241F] rounded-[2rem] lg:rounded-[2.5rem] shadow-xl overflow-hidden border-[4px] lg:border-[6px] border-white ring-1 ring-[#E6D7C3] group">
             {/* Main Character Image */}
             <img 
-              src={`https://picsum.photos/seed/${selectedClass + gender}/600/800`} 
+              src={getCharacterImage(selectedClass, gender)} 
               alt="Character Preview" 
               className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
             />
@@ -72,18 +71,18 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
             <div className="absolute inset-0 bg-gradient-to-t from-[#2C241F] via-[#2C241F]/30 to-transparent opacity-90" />
             
             {/* Sparkles Decoration */}
-            <div className="absolute top-8 right-8 animate-pulse text-[#FFD166] drop-shadow-md">
+            <div className="absolute top-6 right-6 lg:top-8 lg:right-8 animate-pulse text-[#FFD166] drop-shadow-md">
                <Sparkles size={24} fill="currentColor" />
             </div>
 
             {/* Immersive Text Overlay (No Box) */}
-            <div className="absolute bottom-0 left-0 right-0 p-8 flex flex-col items-start z-10">
-               <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md border border-white/30 rounded-full px-3 py-1 mb-3 shadow-sm">
+            <div className="absolute bottom-0 left-0 right-0 p-5 lg:p-8 flex flex-col items-start z-10">
+               <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md border border-white/30 rounded-full px-2 py-0.5 lg:px-3 lg:py-1 mb-2 lg:mb-3 shadow-sm">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#FFD166] shadow-[0_0_5px_#FFD166]" />
                   <span className="text-[10px] font-bold text-white tracking-widest uppercase">Class Select</span>
                </div>
                
-               <h2 className="text-4xl font-black text-white mb-1 drop-shadow-md tracking-tight">
+               <h2 className="text-3xl lg:text-4xl font-black text-white mb-1 drop-shadow-md tracking-tight">
                  {CLASS_LABELS[selectedClass]}
                </h2>
                
@@ -94,12 +93,12 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
         </div>
         
         {/* Class Selection Grid */}
-        <div className="grid grid-cols-2 gap-3 shrink-0">
+        <div className="grid grid-cols-2 gap-2 lg:gap-3 shrink-0">
             {Object.values(ClassType).map((c) => (
               <button
                 key={c}
                 onClick={() => setSelectedClass(c)}
-                className={`relative px-4 py-3 rounded-2xl font-bold text-sm transition-all duration-200 border-2 shadow-sm flex items-center justify-center gap-2 overflow-hidden group/btn ${
+                className={`relative px-2 py-2.5 lg:px-4 lg:py-3 rounded-xl lg:rounded-2xl font-bold text-xs lg:text-sm transition-all duration-200 border-2 shadow-sm flex items-center justify-center gap-2 overflow-hidden group/btn ${
                   selectedClass === c 
                   ? 'bg-[#5D4037] border-[#5D4037] text-white shadow-md translate-y-[-2px]' 
                   : 'bg-white border-[#E6D7C3] text-[#8B7355] hover:border-[#5D4037]/50 hover:bg-[#FFF9F0]'
@@ -110,7 +109,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
                    <motion.div layoutId="activeClass" className="absolute inset-0 bg-white/10" />
                 )}
                 
-                {selectedClass === c && <Sparkles size={14} className="text-[#FFD166]" fill="currentColor" />}
+                {selectedClass === c && <Sparkles size={12} className="text-[#FFD166] lg:w-[14px] lg:h-[14px]" fill="currentColor" />}
                 <span className="relative z-10">{CLASS_LABELS[c]}</span>
               </button>
             ))}
@@ -228,7 +227,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
   );
 
   return (
-    <div className="min-h-screen relative w-full overflow-hidden flex items-center justify-center font-sans bg-[#FFF9F0]">
+    <div className="h-screen relative w-full overflow-hidden flex flex-col lg:flex-row lg:items-center lg:justify-center font-sans bg-[#FFF9F0]">
       
       {/* Background Layer */}
       <div className="absolute inset-0 z-0">
@@ -242,10 +241,10 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
       </div>
 
       {/* Main Content Wrapper */}
-      <div className="relative z-10 w-full h-full lg:h-auto lg:overflow-visible flex flex-col lg:block p-4 md:p-8 max-w-7xl mx-auto">
+      <div className="relative z-10 w-full h-full lg:h-auto flex flex-col p-4 md:p-8 max-w-7xl mx-auto">
           
         {/* Header - Sticky on Mobile */}
-        <div className="flex-none flex justify-between items-center mb-4 lg:mb-8 sticky top-0 z-50 lg:static">
+        <div className="flex-none flex justify-between items-center mb-4 lg:mb-8 z-50">
           <button onClick={() => navigate('/')} className="flex items-center gap-2 text-jrpg-text/60 hover:text-jrpg-primary font-bold transition-colors bg-white/80 px-4 py-2 rounded-full shadow-sm backdrop-blur-md">
             <ChevronLeft size={18} /> <span className="hidden sm:inline">返回标题</span>
           </button>
@@ -256,8 +255,6 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
         </div>
 
         {/* --- DESKTOP LAYOUT (Grid) --- */}
-        {/* items-stretch ensures all columns have the same height. 
-            flex flex-col on motion.div ensures children with h-full fill the column. */}
         <div className="hidden lg:grid grid-cols-12 gap-6 xl:gap-8 items-stretch">
           <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="col-span-3 flex flex-col h-full">
              {renderVisualsSection()}
@@ -279,7 +276,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -50 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24" // Extra padding for bottom nav
+                className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-32" // INCREASED PADDING FOR BOTTOM NAV
              >
                 {mobileStep === 0 && renderVisualsSection()}
                 {mobileStep === 1 && renderFormSection()}
@@ -288,7 +285,7 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
            </AnimatePresence>
 
            {/* Mobile Bottom Navigation Bar */}
-           <div className="absolute bottom-0 left-0 right-0 bg-white/50 backdrop-blur-md border-t border-white/40 p-3 flex justify-between items-center z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+           <div className="absolute bottom-0 left-0 right-0 bg-white/50 backdrop-blur-md border-t border-white/40 p-4 pb-8 flex justify-between items-center z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
               <button 
                 onClick={prevStep} 
                 disabled={mobileStep === 0}

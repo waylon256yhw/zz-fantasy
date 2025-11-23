@@ -86,7 +86,7 @@ const GameInterface: React.FC<GameInterfaceProps> = ({ character }) => {
   if (!character) return null;
 
   return (
-    <div className="fixed inset-0 w-full bg-[#FFF9F0] overflow-hidden flex p-4 md:p-6 gap-6 font-sans">
+    <div className="h-screen relative w-full bg-[#FFF9F0] overflow-hidden flex flex-col md:flex-row p-4 md:p-6 gap-6 font-sans">
       
       {/* Background Ambience */}
       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -219,7 +219,6 @@ const GameInterface: React.FC<GameInterfaceProps> = ({ character }) => {
                                   </>
                                 )}
                                 
-                                {/* FIX: User messages show instantly, NPCs use Typewriter */}
                                 {log.speaker === character.name ? (
                                   <span>{log.text}</span>
                                 ) : (
@@ -235,7 +234,7 @@ const GameInterface: React.FC<GameInterfaceProps> = ({ character }) => {
               </div>
 
               {/* Input Area */}
-              <div className="flex-none p-4 md:p-6 bg-white border-t border-[#F0EAE0] relative z-20">
+              <div className="flex-none p-4 md:p-6 pb-6 md:pb-6 bg-white border-t border-[#F0EAE0] relative z-20">
                   <div className="flex items-center gap-3 bg-[#FDFBF7] p-2 pr-2 pl-5 rounded-2xl border-2 border-[#E6D7C3] focus-within:border-[#FF9FAA] focus-within:ring-4 focus-within:ring-[#FF9FAA]/10 transition-all shadow-inner">
                      <Feather className="text-[#D4C5B0] shrink-0" size={18} />
                      <input 

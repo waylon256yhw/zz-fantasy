@@ -52,6 +52,23 @@ export const CLASS_DESCRIPTIONS: Record<ClassType, string> = {
   [ClassType.SCHOLAR]: "古老知识的守护者。解读卢恩符文与尘封的历史，揭示古代文明的秘密。",
 };
 
+// Helper to map game classes/genders to specific asset filenames
+export const getCharacterImage = (classType: ClassType, gender: string): string => {
+  // Map internal ClassType to the Chinese filename prefix provided
+  const classFileMap: Record<ClassType, string> = {
+    [ClassType.ALCHEMIST]: '法师', // Alchemist -> Mage visuals
+    [ClassType.KNIGHT]: '战士',    // Knight -> Warrior visuals
+    [ClassType.SKY_PIRATE]: '盗贼', // Sky Pirate -> Thief visuals
+    [ClassType.SCHOLAR]: '神官',   // Scholar -> Cleric visuals
+  };
+
+  const filePrefix = classFileMap[classType];
+  // Default to Female if Non-binary is selected for visuals, or use Male/Female suffix
+  const genderSuffix = gender === 'Male' ? '男' : '女';
+
+  return `${ASSET_BASE_URL}/立绘/${filePrefix}-${genderSuffix}.jpeg`;
+};
+
 export const MOCK_ITEMS: Item[] = [
   { id: '1', name: '治愈药水', description: '恢复50点生命值。尝起来像樱桃味。', type: 'Consumable', rarity: 'Common', icon: IMAGES.icons.potion },
   { id: '2', name: '魔力结晶', description: '恢复30点魔力。由于某种原因在微微震动。', type: 'Consumable', rarity: 'Rare', icon: IMAGES.icons.diamond },

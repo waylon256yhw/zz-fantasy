@@ -78,18 +78,18 @@ export const RPGInput: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { 
 );
 
 export const TypewriterText: React.FC<{ text: string; speed?: number; onComplete?: () => void }> = ({ text, speed = 30, onComplete }) => {
-  const [displayLength, setDisplayLength] = React.useState(0);
+  const [displayedText, setDisplayedText] = React.useState('');
 
   React.useEffect(() => {
-    // Reset when text changes
-    setDisplayLength(0);
+    setDisplayedText('');
+    const characters = Array.from(text); // Handle unicode (Chinese, Emojis) correctly by splitting into graphemes
     let currentIndex = 0;
     
     const intervalId = setInterval(() => {
       currentIndex++;
-      setDisplayLength(currentIndex);
+      setDisplayedText(characters.slice(0, currentIndex).join(''));
 
-      if (currentIndex >= text.length) {
+      if (currentIndex >= characters.length) {
         clearInterval(intervalId);
         onComplete?.();
       }
@@ -98,6 +98,5 @@ export const TypewriterText: React.FC<{ text: string; speed?: number; onComplete
     return () => clearInterval(intervalId);
   }, [text, speed, onComplete]);
 
-  // Use slice ensures we never miss a character due to race conditions
-  return <span>{text.slice(0, displayLength)}</span>;
+  return <span>{displayedText}</span>;
 };
