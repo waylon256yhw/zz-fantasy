@@ -2,6 +2,7 @@ import { CharacterStats, ClassType, Item, Quest } from "./types";
 
 export const ASSET_BASE_URL = "https://pub-12f2a3bd170342c18c0c3de229cb60c7.r2.dev";
 const ILLUSTRATION_ICON_PATH = `${ASSET_BASE_URL}/插画图标`;
+const ENEMY_ILLUSTRATION_ICON_PATH = ILLUSTRATION_ICON_PATH;
 
 export const IMAGES = {
   bg: {
@@ -88,8 +89,129 @@ export const IMAGES = {
     spellbook: `${ILLUSTRATION_ICON_PATH}/spellbook.png`,
     starCrystal: `${ILLUSTRATION_ICON_PATH}/star_crystal.png`,
     wingedHourglass: `${ILLUSTRATION_ICON_PATH}/winged_hourglass.png`,
+
+    // 敌人 / 魔物 - 低级
+    enemyGoblinScout: `${ENEMY_ILLUSTRATION_ICON_PATH}/01_goblin_scout.png`,
+    enemyRoadBandit: `${ENEMY_ILLUSTRATION_ICON_PATH}/02_road_bandit.png`,
+    enemyWildBoar: `${ENEMY_ILLUSTRATION_ICON_PATH}/03_wild_boar.png`,
+    enemyYoungTreant: `${ENEMY_ILLUSTRATION_ICON_PATH}/04_young_treant.png`,
+    enemyCaveBat: `${ENEMY_ILLUSTRATION_ICON_PATH}/05_cave_bat.png`,
+    enemyBlueSlime: `${ENEMY_ILLUSTRATION_ICON_PATH}/06_blue_slime.png`,
+    enemyBoneSoldier: `${ENEMY_ILLUSTRATION_ICON_PATH}/07_bone_soldier.png`,
+    enemySewerRat: `${ENEMY_ILLUSTRATION_ICON_PATH}/08_sewer_rat.png`,
+    enemyCaveSpider: `${ENEMY_ILLUSTRATION_ICON_PATH}/09_cave_spider.png`,
+    enemyTrainingDummy: `${ENEMY_ILLUSTRATION_ICON_PATH}/10_training_dummy.png`,
+    enemyStoneGolem: `${ENEMY_ILLUSTRATION_ICON_PATH}/11_stone_golem.png`,
+    enemyImpDevil: `${ENEMY_ILLUSTRATION_ICON_PATH}/12_imp_devil.png`,
+    enemyForestFairy: `${ENEMY_ILLUSTRATION_ICON_PATH}/13_forest_fairy.png`,
+    enemyAngryShroom: `${ENEMY_ILLUSTRATION_ICON_PATH}/14_angry_shroom.png`,
+    enemyBabyDrake: `${ENEMY_ILLUSTRATION_ICON_PATH}/15_baby_drake.png`,
+    enemySoftGhost: `${ENEMY_ILLUSTRATION_ICON_PATH}/16_soft_ghost.png`,
+
+    // 敌人 / 魔物 - 中级
+    enemyFeralTiger: `${ENEMY_ILLUSTRATION_ICON_PATH}/01_feral_tiger.png`,
+    enemyWerewolf: `${ENEMY_ILLUSTRATION_ICON_PATH}/02_werewolf.png`,
+    enemySeaSerpent: `${ENEMY_ILLUSTRATION_ICON_PATH}/03_sea_serpent.png`,
+    enemyVampireLord: `${ENEMY_ILLUSTRATION_ICON_PATH}/04_vampire_lord.png`,
+    enemyMountedKnight: `${ENEMY_ILLUSTRATION_ICON_PATH}/05_mounted_knight.png`,
+    enemyDarkVizier: `${ENEMY_ILLUSTRATION_ICON_PATH}/06_dark_vizier.png`,
+    enemyProudGriffin: `${ENEMY_ILLUSTRATION_ICON_PATH}/07_proud_griffin.png`,
+    enemyFrostOgre: `${ENEMY_ILLUSTRATION_ICON_PATH}/08_frost_ogre.png`,
+    enemyFireDragon: `${ENEMY_ILLUSTRATION_ICON_PATH}/09_fire_dragon.png`,
+    enemyDarkRanger: `${ENEMY_ILLUSTRATION_ICON_PATH}/10_dark_ranger.png`,
+    enemyBoneGeneral: `${ENEMY_ILLUSTRATION_ICON_PATH}/11_bone_general.png`,
+    enemySeaMedusa: `${ENEMY_ILLUSTRATION_ICON_PATH}/12_sea_medusa.png`,
+    enemySpikedColossus: `${ENEMY_ILLUSTRATION_ICON_PATH}/13_spiked_colossus.png`,
+    enemyHellKnight: `${ENEMY_ILLUSTRATION_ICON_PATH}/14_hell_knight.png`,
+    enemyGoblinAirship: `${ENEMY_ILLUSTRATION_ICON_PATH}/15_goblin_airship.png`,
+    enemyShadowNinja: `${ENEMY_ILLUSTRATION_ICON_PATH}/16_shadow_ninja.png`,
+
+    // 敌人 / 魔物 - 高级BOSS / 稀有怪
+    bossInfernoDragon: `${ENEMY_ILLUSTRATION_ICON_PATH}/01_inferno_dragon.png`,
+    bossInfernalLord: `${ENEMY_ILLUSTRATION_ICON_PATH}/02_infernal_lord.png`,
+    bossRuneColossus: `${ENEMY_ILLUSTRATION_ICON_PATH}/03_rune_colossus.png`,
+    bossBlazePhoenix: `${ENEMY_ILLUSTRATION_ICON_PATH}/04_blaze_phoenix.png`,
+    bossJewelBeetle: `${ENEMY_ILLUSTRATION_ICON_PATH}/05_jewel_beetle.png`,
+    bossRoyalSlime: `${ENEMY_ILLUSTRATION_ICON_PATH}/06_royal_slime.png`,
+    bossCursedChest: `${ENEMY_ILLUSTRATION_ICON_PATH}/07_cursed_chest.png`,
+    bossStarlightFairy: `${ENEMY_ILLUSTRATION_ICON_PATH}/08_starlight_fairy.png`,
+    bossDeathKnight: `${ENEMY_ILLUSTRATION_ICON_PATH}/09_death_knight.png`,
+    bossCrystalGiant: `${ENEMY_ILLUSTRATION_ICON_PATH}/10_crystal_giant.png`,
+    bossArcaneSage: `${ENEMY_ILLUSTRATION_ICON_PATH}/11_arcane_sage.png`,
+    bossIronChampion: `${ENEMY_ILLUSTRATION_ICON_PATH}/12_iron_champion.png`,
+    bossCosmosDragon: `${ENEMY_ILLUSTRATION_ICON_PATH}/13_cosmos_dragon.png`,
+    bossRainbowAvatar: `${ENEMY_ILLUSTRATION_ICON_PATH}/14_rainbow_avatar.png`,
+    bossRuneGargoyle: `${ENEMY_ILLUSTRATION_ICON_PATH}/15_rune_gargoyle.png`,
+    bossVoidHorror: `${ENEMY_ILLUSTRATION_ICON_PATH}/16_void_horror.png`,
   }
 };
+
+// 敌人插画图标中文索引（按难度分组）
+export const ENEMY_ILLUSTRATION_GROUPS = {
+  low: {
+    label: '低级魔物',
+    list: [
+      { key: 'enemyGoblinScout', name: '哥布林斥候' },
+      { key: 'enemyRoadBandit', name: '路边强盗' },
+      { key: 'enemyWildBoar', name: '野猪' },
+      { key: 'enemyYoungTreant', name: '幼年树人' },
+      { key: 'enemyCaveBat', name: '洞穴蝙蝠' },
+      { key: 'enemyBlueSlime', name: '蓝色史莱姆' },
+      { key: 'enemyBoneSoldier', name: '骸骨士兵' },
+      { key: 'enemySewerRat', name: '下水道巨鼠' },
+      { key: 'enemyCaveSpider', name: '洞穴蜘蛛' },
+      { key: 'enemyTrainingDummy', name: '训练木桩' },
+      { key: 'enemyStoneGolem', name: '石像傀儡' },
+      { key: 'enemyImpDevil', name: '小恶魔' },
+      { key: 'enemyForestFairy', name: '森林精灵' },
+      { key: 'enemyAngryShroom', name: '愤怒蘑菇' },
+      { key: 'enemyBabyDrake', name: '幼年飞龙' },
+      { key: 'enemySoftGhost', name: '柔弱幽灵' },
+    ],
+  },
+  mid: {
+    label: '中级魔物',
+    list: [
+      { key: 'enemyFeralTiger', name: '野性猛虎' },
+      { key: 'enemyWerewolf', name: '狼人' },
+      { key: 'enemySeaSerpent', name: '海洋巨蛇' },
+      { key: 'enemyVampireLord', name: '吸血领主' },
+      { key: 'enemyMountedKnight', name: '骑乘骑士' },
+      { key: 'enemyDarkVizier', name: '黑暗宰相' },
+      { key: 'enemyProudGriffin', name: '傲翼狮鹫' },
+      { key: 'enemyFrostOgre', name: '冰霜食人魔' },
+      { key: 'enemyFireDragon', name: '火焰巨龙' },
+      { key: 'enemyDarkRanger', name: '暗影游侠' },
+      { key: 'enemyBoneGeneral', name: '白骨将军' },
+      { key: 'enemySeaMedusa', name: '海妖美杜莎' },
+      { key: 'enemySpikedColossus', name: '棘刺巨像' },
+      { key: 'enemyHellKnight', name: '地狱骑士' },
+      { key: 'enemyGoblinAirship', name: '哥布林飞艇' },
+      { key: 'enemyShadowNinja', name: '影子忍者' },
+    ],
+  },
+  high: {
+    label: '高级BOSS/稀有怪',
+    list: [
+      { key: 'bossInfernoDragon', name: '炼狱巨龙' },
+      { key: 'bossInfernalLord', name: '炼狱魔君' },
+      { key: 'bossRuneColossus', name: '符文巨像' },
+      { key: 'bossBlazePhoenix', name: '烈焰凤凰' },
+      { key: 'bossJewelBeetle', name: '宝石甲虫' },
+      { key: 'bossRoyalSlime', name: '皇家史莱姆' },
+      { key: 'bossCursedChest', name: '诅咒宝箱' },
+      { key: 'bossStarlightFairy', name: '星光精灵' },
+      { key: 'bossDeathKnight', name: '死亡骑士' },
+      { key: 'bossCrystalGiant', name: '水晶巨人' },
+      { key: 'bossArcaneSage', name: '奥术贤者' },
+      { key: 'bossIronChampion', name: '钢铁勇士' },
+      { key: 'bossCosmosDragon', name: '宇宙巨龙' },
+      { key: 'bossRainbowAvatar', name: '彩虹化身' },
+      { key: 'bossRuneGargoyle', name: '符文石像鬼' },
+      { key: 'bossVoidHorror', name: '虚空恐魔' },
+    ],
+  },
+} as const;
 
 export const INITIAL_STATS: Record<ClassType, CharacterStats> = {
   [ClassType.ALCHEMIST]: { STR: 3, DEX: 6, INT: 10, CHA: 5, LUCK: 8 },

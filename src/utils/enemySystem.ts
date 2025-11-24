@@ -26,28 +26,55 @@ interface TreasureTemplate extends EnemyTemplate {
  */
 const ENEMY_TEMPLATES: Record<'D' | 'C' | 'B' | 'A', EnemyTemplate[]> = {
   D: [
-    { name: '野生史莱姆', baseHp: 60, baseAttack: 5, baseDefense: 2 },
-    { name: '流浪哥布林', baseHp: 70, baseAttack: 6, baseDefense: 3 },
-    { name: '腐朽骷髅', baseHp: 55, baseAttack: 7, baseDefense: 1 },
-    { name: '暗影蝙蝠', baseHp: 60, baseAttack: 6, baseDefense: 2 },
+    { name: '哥布林斥候', baseHp: 60, baseAttack: 6, baseDefense: 2 },   // enemyGoblinScout
+    { name: '路边强盗', baseHp: 65, baseAttack: 7, baseDefense: 2 },     // enemyRoadBandit
+    { name: '野猪', baseHp: 70, baseAttack: 7, baseDefense: 3 },         // enemyWildBoar
+    { name: '幼年树人', baseHp: 75, baseAttack: 6, baseDefense: 4 },     // enemyYoungTreant
+    { name: '洞穴蝙蝠', baseHp: 55, baseAttack: 6, baseDefense: 2 },     // enemyCaveBat
+    { name: '蓝色史莱姆', baseHp: 50, baseAttack: 5, baseDefense: 2 },   // enemyBlueSlime
+    { name: '骸骨士兵', baseHp: 65, baseAttack: 7, baseDefense: 3 },     // enemyBoneSoldier
+    { name: '下水道巨鼠', baseHp: 55, baseAttack: 5, baseDefense: 1 },   // enemySewerRat
+    { name: '洞穴蜘蛛', baseHp: 60, baseAttack: 6, baseDefense: 3 },     // enemyCaveSpider
+    { name: '训练木桩', baseHp: 45, baseAttack: 4, baseDefense: 1 },     // enemyTrainingDummy
+    { name: '石像傀儡', baseHp: 80, baseAttack: 5, baseDefense: 5 },     // enemyStoneGolem
+    { name: '小恶魔', baseHp: 55, baseAttack: 7, baseDefense: 2 },       // enemyImpDevil
+    { name: '森林精灵', baseHp: 60, baseAttack: 5, baseDefense: 3 },     // enemyForestFairy
+    { name: '愤怒蘑菇', baseHp: 55, baseAttack: 6, baseDefense: 2 },     // enemyAngryShroom
+    { name: '幼年飞龙', baseHp: 80, baseAttack: 8, baseDefense: 3 },     // enemyBabyDrake
+    { name: '柔弱幽灵', baseHp: 50, baseAttack: 5, baseDefense: 1 },     // enemySoftGhost
   ],
   C: [
-    { name: '变异史莱姆', baseHp: 110, baseAttack: 10, baseDefense: 5 },
-    { name: '哥布林战士', baseHp: 130, baseAttack: 12, baseDefense: 7 },
-    { name: '暗影刺客', baseHp: 100, baseAttack: 15, baseDefense: 4 },
-    { name: '森林狼人', baseHp: 120, baseAttack: 13, baseDefense: 6 },
+    { name: '野性猛虎', baseHp: 120, baseAttack: 12, baseDefense: 5 },    // enemyFeralTiger
+    { name: '狼人', baseHp: 130, baseAttack: 13, baseDefense: 6 },        // enemyWerewolf
+    { name: '海洋巨蛇', baseHp: 140, baseAttack: 14, baseDefense: 5 },    // enemySeaSerpent
+    { name: '吸血领主', baseHp: 120, baseAttack: 16, baseDefense: 4 },    // enemyVampireLord
+    { name: '骑乘骑士', baseHp: 135, baseAttack: 13, baseDefense: 7 },    // enemyMountedKnight
+    { name: '黑暗宰相', baseHp: 110, baseAttack: 17, baseDefense: 5 },    // enemyDarkVizier
+    { name: '傲翼狮鹫', baseHp: 130, baseAttack: 14, baseDefense: 6 },    // enemyProudGriffin
+    { name: '冰霜食人魔', baseHp: 150, baseAttack: 15, baseDefense: 8 },  // enemyFrostOgre
+    { name: '火焰巨龙', baseHp: 150, baseAttack: 18, baseDefense: 7 },    // enemyFireDragon
+    { name: '暗影游侠', baseHp: 115, baseAttack: 16, baseDefense: 4 },    // enemyDarkRanger
+    { name: '白骨将军', baseHp: 140, baseAttack: 17, baseDefense: 7 },    // enemyBoneGeneral
+    { name: '海妖美杜莎', baseHp: 125, baseAttack: 15, baseDefense: 6 },  // enemySeaMedusa
+    { name: '棘刺巨像', baseHp: 155, baseAttack: 14, baseDefense: 9 },    // enemySpikedColossus
+    { name: '地狱骑士', baseHp: 145, baseAttack: 18, baseDefense: 8 },    // enemyHellKnight
+    { name: '哥布林飞艇', baseHp: 130, baseAttack: 13, baseDefense: 6 },  // enemyGoblinAirship
+    { name: '影子忍者', baseHp: 115, baseAttack: 17, baseDefense: 4 },    // enemyShadowNinja
   ],
   B: [
-    { name: '岩石巨魔', baseHp: 200, baseAttack: 18, baseDefense: 12 },
-    { name: '荒野狼王', baseHp: 180, baseAttack: 22, baseDefense: 10 },
-    { name: '炎魔', baseHp: 160, baseAttack: 25, baseDefense: 8 },
-    { name: '冰霜元素', baseHp: 170, baseAttack: 20, baseDefense: 11 },
+    { name: '符文巨像', baseHp: 220, baseAttack: 22, baseDefense: 14 },   // bossRuneColossus
+    { name: '死亡骑士', baseHp: 210, baseAttack: 26, baseDefense: 13 },   // bossDeathKnight
+    { name: '水晶巨人', baseHp: 230, baseAttack: 24, baseDefense: 15 },   // bossCrystalGiant
+    { name: '钢铁勇士', baseHp: 200, baseAttack: 23, baseDefense: 16 },   // bossIronChampion
+    { name: '符文石像鬼', baseHp: 210, baseAttack: 21, baseDefense: 12 }, // bossRuneGargoyle
   ],
   A: [
-    { name: '遗迹守护者', baseHp: 300, baseAttack: 30, baseDefense: 20 },
-    { name: '暗黑骑士', baseHp: 280, baseAttack: 35, baseDefense: 22 },
-    { name: '古龙幼崽', baseHp: 350, baseAttack: 40, baseDefense: 18 },
-    { name: '虚空行者', baseHp: 320, baseAttack: 38, baseDefense: 19 },
+    { name: '炼狱巨龙', baseHp: 340, baseAttack: 38, baseDefense: 22 },   // bossInfernoDragon
+    { name: '炼狱魔君', baseHp: 320, baseAttack: 40, baseDefense: 24 },   // bossInfernalLord
+    { name: '烈焰凤凰', baseHp: 310, baseAttack: 36, baseDefense: 20 },   // bossBlazePhoenix
+    { name: '奥术贤者', baseHp: 300, baseAttack: 34, baseDefense: 18 },   // bossArcaneSage
+    { name: '宇宙巨龙', baseHp: 360, baseAttack: 42, baseDefense: 23 },   // bossCosmosDragon
+    { name: '虚空恐魔', baseHp: 330, baseAttack: 39, baseDefense: 21 },   // bossVoidHorror
   ],
 };
 
@@ -57,27 +84,43 @@ const ENEMY_TEMPLATES: Record<'D' | 'C' | 'B' | 'A', EnemyTemplate[]> = {
  */
 const TREASURE_MONSTERS: TreasureTemplate[] = [
   {
-    name: '黄金史莱姆',
-    baseHp: 30,
-    baseAttack: 1,
-    baseDefense: 1,
-    goldReward: 500,
+    name: '宝石甲虫',
+    baseHp: 45,
+    baseAttack: 3,
+    baseDefense: 4,
+    goldReward: 900,
     maxTurns: 3,
   },
   {
-    name: '宝箱怪',
-    baseHp: 50,
-    baseAttack: 2,
-    baseDefense: 2,
-    goldReward: 800,
+    name: '皇家史莱姆',
+    baseHp: 60,
+    baseAttack: 3,
+    baseDefense: 3,
+    goldReward: 1000,
     maxTurns: 3,
   },
   {
-    name: '财运猫妖',
+    name: '诅咒宝箱',
+    baseHp: 55,
+    baseAttack: 4,
+    baseDefense: 4,
+    goldReward: 1200,
+    maxTurns: 3,
+  },
+  {
+    name: '星光精灵',
     baseHp: 40,
-    baseAttack: 1,
-    baseDefense: 1,
-    goldReward: 650,
+    baseAttack: 2,
+    baseDefense: 3,
+    goldReward: 850,
+    maxTurns: 3,
+  },
+  {
+    name: '彩虹化身',
+    baseHp: 50,
+    baseAttack: 3,
+    baseDefense: 3,
+    goldReward: 1100,
     maxTurns: 3,
   },
 ];
