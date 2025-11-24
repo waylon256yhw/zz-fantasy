@@ -256,11 +256,11 @@ export const getCharacterImage = (classType: ClassType, gender: string): string 
 // 只能使用已收录的图标（当前64个，见 IMAGES.icons）
 export const ALL_ITEMS = {
   // Consumables (消耗品)
-  POTION: { id: 'item_potion', name: '治愈药水', description: '恢复50点生命值。尝起来像樱桃味。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.potion },
+  POTION: { id: 'item_potion', name: '治愈药水', description: '战斗用药水：立刻恢复一部分行动点，并在接下来数回合内持续缓慢回复。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.potion },
   BREAD: { id: 'item_bread', name: '旅行干粮', description: '简单的面包，能果腹。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.bread },
   APPLE_SNACK: { id: 'item_apple', name: '苹果小食', description: '爽脆的补给，恢复少量生命。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.apple },
-  STAMINA_STEW: { id: 'item_stew', name: '猎人炖汤', description: '热气腾腾，补充体力，恢复中量生命。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.stew },
-  ARCANE_TONIC: { id: 'item_arcane_tonic', name: '秘药：灵能酿', description: '短时间内提升专注，恢复中量魔力。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.purplePotion },
+  STAMINA_STEW: { id: 'item_stew', name: '猎人炖汤', description: '热气腾腾，补充体力，恢复中量行动点。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.stew },
+  ARCANE_TONIC: { id: 'item_arcane_tonic', name: '秘药：灵能酿', description: '战斗用秘药：饮下后行动点瞬间回满，副作用是会让你异常兴奋。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.purplePotion },
   TAVERN_BEER: { id: 'item_beer', name: '酒馆麦酒', description: '泡沫丰富的麦芽啤酒，能稍微暖暖胃。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.beer },
   FOREST_BERRIES: { id: 'item_berries', name: '森林浆果碟', description: '酸酸甜甜的一小碟浆果，适合边听故事边吃。', type: 'Consumable' as const, rarity: 'Common' as const, icon: IMAGES.icons.berries },
   SWEET_CAKE: { id: 'item_cake', name: '奶油小蛋糕', description: '裱花细致的蛋糕，让人一口气忘掉疲惫。', type: 'Consumable' as const, rarity: 'Rare' as const, icon: IMAGES.icons.cake },

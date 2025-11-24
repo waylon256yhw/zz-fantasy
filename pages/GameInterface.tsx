@@ -915,25 +915,31 @@ ${finalAction}
                </button>
 
                {activeSheet === 'INVENTORY' && <InventorySheet items={character.inventory} onUseItem={(itemId, itemName) => {
-                 // 禁止在背包中直接使用战斗药水（仅战斗内通过“喝药”使用）
                  const item = character.inventory.find(i => i.id === itemId);
-                 if (item && item.type === 'Consumable' && (item.name === '治愈药水' || item.name === '秘药：灵能酿')) {
+                 if (!item) return;
+
+                 // 禁止在背包中直接使用战斗药水（仅战斗内通过“喝药”使用）
+                 if (item.type === 'Consumable' && (item.name === '治愈药水' || item.name === '秘药：灵能酿')) {
                    alert('战斗用药水只能在战斗中通过“喝药”按钮使用，日常请使用食物恢复体力。');
                    return;
                  }
 
-                 if (!item) return;
-
                  if (item.type === 'Consumable') {
-                   // 立即消耗食物并恢复 AP（useItem 内部已经处理 AP 结算）
+                   // 食物：立即消耗并恢复 AP（不发送对话，只弹提示）
                    useItem(itemId);
                    autoSave();
-
-                   // 使用提示框而不是在对话区打印文本
                    alert(`你吃掉了「${itemName}」，感觉恢复了一些体力。`);
+                   setActiveSheet(null);
+                   return;
                  }
 
+                 // 非消耗品：作为一次“检视”行为发送到主对话，让 DM/莉亚做描述
+                 const inspectText = `我检视了一下背包里的「${itemName}」。`;
                  setActiveSheet(null);
+                 setInput(inspectText);
+                 setTimeout(() => {
+                   handleAction(inspectText);
+                 }, 100);
                }} />}
                {activeSheet === 'STATUS' && <StatusSheet character={character} />}
                {activeSheet === 'COMBAT' && !combatState.showSettlement && (
