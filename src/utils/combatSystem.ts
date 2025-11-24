@@ -3,7 +3,7 @@
  * Handles all combat-related calculations (attack power, AP, damage, etc.)
  */
 
-import { Character, CharacterStats } from '../../types';
+import { Character, CharacterStats, Item } from '../../types';
 import { COMBAT_CONFIG } from '../config/combatConfig';
 
 /**
@@ -18,6 +18,29 @@ export function getTotalStats(character: Character): CharacterStats {
     CHA: character.stats.CHA + (character.statsBonus?.CHA || 0),
     LUCK: character.stats.LUCK + (character.statsBonus?.LUCK || 0),
   };
+}
+
+/**
+ * Aggregate stat bonuses from inventory items
+ * - 装备与拥有的特殊物品可以通过 statBonus 提升（或削弱）五维
+ * - 所有带有 statBonus 的物品效果会叠加
+ */
+export function computeStatsBonusFromInventory(inventory: Item[] | undefined | null): CharacterStats {
+  const zero: CharacterStats = { STR: 0, DEX: 0, INT: 0, CHA: 0, LUCK: 0 };
+  if (!Array.isArray(inventory)) return zero;
+
+  return inventory.reduce<CharacterStats>((acc, item) => {
+    const bonus = item.statBonus;
+    if (!bonus) return acc;
+
+    return {
+      STR: acc.STR + (bonus.STR ?? 0),
+      DEX: acc.DEX + (bonus.DEX ?? 0),
+      INT: acc.INT + (bonus.INT ?? 0),
+      CHA: acc.CHA + (bonus.CHA ?? 0),
+      LUCK: acc.LUCK + (bonus.LUCK ?? 0),
+    };
+  }, zero);
 }
 
 /**

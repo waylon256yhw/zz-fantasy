@@ -7,7 +7,7 @@ import { INITIAL_STATS, CLASS_DESCRIPTIONS, CLASS_LABELS, IMAGES, getCharacterIm
 import { ChevronLeft, Sparkles, CheckCircle, Wand2, Palette, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import { initializeHpMp } from '../src/utils/hpMpSystem';
-import { calculateMaxAP } from '../src/utils/combatSystem';
+import { calculateMaxAP, computeStatsBonusFromInventory } from '../src/utils/combatSystem';
 
 interface CharacterCreationProps {
   onComplete: (char: Character) => void;
@@ -34,6 +34,9 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
     // Initialize AP (Action Points) for combat system
     const maxAP = calculateMaxAP(1);
 
+    // Initialize starting inventory
+    const startingInventory = getStartingInventory(selectedClass);
+
     const newChar: Character = {
       name,
       classType: selectedClass,
@@ -44,13 +47,14 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
       gold: 100,
       avatarUrl: getCharacterImage(selectedClass, gender),
       appearance,
-      inventory: getStartingInventory(selectedClass),
+      inventory: startingInventory,
       activeQuests: [],
       completedQuests: [],
       ...hpMpValues, // Add HP/MP
       currentAP: maxAP,
       maxAP: maxAP,
-      statsBonus: { STR: 0, DEX: 0, INT: 0, CHA: 0, LUCK: 0 }, // Reserved for equipment bonuses
+      // Apply passive bonuses from owned equipment / relics
+      statsBonus: computeStatsBonusFromInventory(startingInventory),
     };
     onComplete(newChar);
     navigate('/game');

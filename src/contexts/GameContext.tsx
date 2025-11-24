@@ -30,6 +30,7 @@ import {
   calculateMaxAP,
   calculateAPDamage,
   checkTimeout,
+  computeStatsBonusFromInventory,
 } from '../utils/combatSystem';
 import { COMBAT_CONFIG } from '../config/combatConfig';
 
@@ -160,6 +161,49 @@ export function GameProvider({ children }: { children: ReactNode }) {
     sessionResults: [],
   });
 
+  // Helper: compute total stats bonus from inventory items and owned legendary relics
+  const computeTotalStatsBonus = (inventory: Item[]): CharacterStats => {
+    const fromInventory = computeStatsBonusFromInventory(inventory);
+
+    // Legendary relics owned via 万宝阁（不一定出现在背包中）
+    const fromRelics = shopState.purchasedKeys.reduce<CharacterStats>(
+      (acc, key) => {
+        const def = ALL_ITEMS[key];
+        const bonus = def?.statBonus;
+        if (!bonus) return acc;
+
+        return {
+          STR: acc.STR + (bonus.STR ?? 0),
+          DEX: acc.DEX + (bonus.DEX ?? 0),
+          INT: acc.INT + (bonus.INT ?? 0),
+          CHA: acc.CHA + (bonus.CHA ?? 0),
+          LUCK: acc.LUCK + (bonus.LUCK ?? 0),
+        };
+      },
+      { STR: 0, DEX: 0, INT: 0, CHA: 0, LUCK: 0 }
+    );
+
+    return {
+      STR: fromInventory.STR + fromRelics.STR,
+      DEX: fromInventory.DEX + fromRelics.DEX,
+      INT: fromInventory.INT + fromRelics.INT,
+      CHA: fromInventory.CHA + fromRelics.CHA,
+      LUCK: fromInventory.LUCK + fromRelics.LUCK,
+    };
+  };
+
+  // Recompute stats bonus whenever legendary collection changes
+  useEffect(() => {
+    setCharacter(prev =>
+      prev
+        ? {
+            ...prev,
+            statsBonus: computeTotalStatsBonus(prev.inventory),
+          }
+        : prev
+    );
+  }, [shopState.purchasedKeys]);
+
   // Initialize DZMM API
   useEffect(() => {
     DZMMService.waitForReady().then(() => {
@@ -251,7 +295,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!allCollected || shopState.achievementClaimed) return false;
 
     const proof = getItemInstance('OVERLORD_PROOF');
-    setCharacter(prev => prev ? { ...prev, inventory: [...prev.inventory, proof] } : prev);
+    setCharacter(prev =>
+      prev
+        ? {
+            ...prev,
+            inventory: [...prev.inventory, proof],
+            statsBonus: computeTotalStatsBonus([...prev.inventory, proof]),
+          }
+        : prev
+    );
     setShopState(prev => ({ ...prev, achievementClaimed: true }));
     return true;
   };
@@ -335,6 +387,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           return {
             ...prev,
             inventory,
+            statsBonus: computeTotalStatsBonus(inventory),
           };
         }
 
@@ -343,17 +396,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
           ...item,
           quantity: Math.min(incomingQty, MAX_STACK),
         };
+        const inventory = [...prev.inventory, clampedItem];
 
         return {
           ...prev,
-          inventory: [...prev.inventory, clampedItem],
+          inventory,
+          statsBonus: computeTotalStatsBonus(inventory),
         };
       }
 
       // 非消耗品：直接新增格子
+      const inventory = [...prev.inventory, item];
       return {
         ...prev,
-        inventory: [...prev.inventory, item],
+        inventory,
+        statsBonus: computeTotalStatsBonus(inventory),
       };
     });
   };
@@ -362,9 +419,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const removeItem = (itemId: string) => {
     setCharacter(prev => {
       if (!prev) return prev;
+      const inventory = prev.inventory.filter((i) => i.id !== itemId);
       return {
         ...prev,
-        inventory: prev.inventory.filter((i) => i.id !== itemId),
+        inventory,
+        statsBonus: computeTotalStatsBonus(inventory),
       };
     });
   };
@@ -415,6 +474,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         ...prev,
         inventory: updatedInventory,
         currentAP: updatedAP,
+        statsBonus: computeTotalStatsBonus(updatedInventory),
       };
     });
   };
@@ -1125,6 +1185,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
       purchasedKeys: saveData.shopState?.purchasedKeys ?? [],
       achievementClaimed: saveData.shopState?.achievementClaimed ?? false,
     }));
+
+    // After shop state is restored, recompute stats bonus including relics
+    setCharacter(prev =>
+      prev
+        ? {
+            ...prev,
+            statsBonus: computeTotalStatsBonus(prev.inventory),
+          }
+        : prev
+    );
     refreshShop();
 
     console.log(`[GameContext] Game loaded from slot ${slotNumber}`);

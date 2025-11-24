@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Swords, Shield, Flag, FlaskConical } from 'lucide-react';
-import { Character, CombatState } from '../types';
+import { Character, CharacterStats, CombatState } from '../types';
 import { CombatLogDisplay } from './CombatLogDisplay';
 import { canPerformAction } from '../src/utils/combatSystem';
 import { COMBAT_CONFIG } from '../src/config/combatConfig';
@@ -26,6 +26,10 @@ export const CombatSheet: React.FC<CombatSheetProps> = ({
     combatState;
 
   const [showPotionPanel, setShowPotionPanel] = useState(false);
+
+  const hasAnyStatBonus =
+    character.statsBonus &&
+    Object.values(character.statsBonus).some((v) => v !== 0);
 
   // 在战斗中且未被击晕、敌人未被击败时，允许攻击 / 防御
   // AP 不足的后果由战斗结算逻辑处理，避免按钮误判导致卡死
@@ -49,12 +53,32 @@ export const CombatSheet: React.FC<CombatSheetProps> = ({
       <div className="px-4 py-2 md:px-5 md:py-3 border-b border-[#E6D7C3] bg-gradient-to-b from-[#FFF8E7] to-[#FFFBF0]">
         {/* Stats Display (5 stats in a row) */}
         <div className="grid grid-cols-5 gap-1.5 mb-2">
-          {Object.entries(character.stats).map(([key, value]) => (
-            <div key={key} className="bg-white border border-[#E6D7C3] rounded-lg px-2 py-1 text-center">
-              <div className="text-xs text-[#8B7355] font-bold">{key}</div>
-              <div className="text-lg font-bold text-[#5D4037]">{value}</div>
-            </div>
-          ))}
+          {Object.entries(character.stats).map(([key, value]) => {
+            const statKey = key as keyof CharacterStats;
+            const bonus = character.statsBonus?.[statKey] ?? 0;
+            const hasBonus = hasAnyStatBonus && bonus !== 0;
+
+            return (
+              <div
+                key={key}
+                className="bg-white border border-[#E6D7C3] rounded-lg px-2 py-1 text-center"
+              >
+                <div className="text-xs text-[#8B7355] font-bold">{key}</div>
+                <div className="text-lg font-bold text-[#5D4037]">
+                  <span>{value}</span>
+                  {hasBonus && (
+                    <span
+                      className={
+                        bonus > 0 ? 'text-green-600 text-xs ml-0.5' : 'text-red-600 text-xs ml-0.5'
+                      }
+                    >
+                      {bonus > 0 ? `(+${bonus})` : `(${bonus})`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Enemy Info Card (when in combat) */}

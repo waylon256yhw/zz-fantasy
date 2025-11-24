@@ -1390,6 +1390,44 @@ const InventorySheet = ({ items, onUseItem }: { items: Item[]; onUseItem: (itemI
                  <p className="text-[#5D4037] leading-relaxed">{selectedItem.description}</p>
                </div>
 
+               {/* Stat bonuses preview (if any) */}
+               {selectedItem.statBonus && (
+                 <div className="bg-white p-4 rounded-xl border-2 border-[#E6D7C3] mb-6">
+                   <div className="text-sm font-bold text-[#5D4037] mb-2">属性加成</div>
+                   <div className="flex flex-wrap gap-2">
+                     {(['STR', 'DEX', 'INT', 'CHA', 'LUCK'] as Array<keyof CharacterStats>)
+                       .map(key => {
+                         const value = selectedItem.statBonus?.[key] ?? 0;
+                         if (!value) return null;
+
+                         const labelMap: Record<keyof CharacterStats, string> = {
+                           STR: '力量',
+                           DEX: '敏捷',
+                           INT: '智力',
+                           CHA: '魅力',
+                           LUCK: '幸运',
+                         };
+
+                         const isPositive = value > 0;
+                         const sign = value > 0 ? '+' : '';
+
+                         return (
+                           <span
+                             key={key}
+                             className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                               isPositive
+                                 ? 'bg-green-50 text-green-700 border-green-200'
+                                 : 'bg-red-50 text-red-700 border-red-200'
+                             }`}
+                           >
+                             {labelMap[key]} {sign}{value}
+                           </span>
+                         );
+                       })}
+                   </div>
+                 </div>
+               )}
+
                <div className="flex gap-3">
                  <button
                    onClick={() => setShowDetail(false)}
@@ -1799,6 +1837,43 @@ const HonorWall = ({ shopState, onClaim }: { shopState: ShopState; onClaim: () =
                 <h3 className="text-2xl font-black text-[#5D4037]">{selectedItem.name}</h3>
                 <span className="text-xs font-bold text-purple-700 bg-purple-100 px-3 py-1 rounded-full">传奇</span>
                 <p className="text-sm text-[#8B7355] leading-relaxed">{selectedItem.description}</p>
+
+                {/* Stat bonuses preview (if any) */}
+                {selectedItem.statBonus && (
+                  <div className="mt-2 bg-[#FFFBF0] border border-[#E6D7C3] rounded-2xl px-3 py-2 w-full max-w-xs">
+                    <div className="text-xs font-bold text-[#5D4037] mb-1">属性加成</div>
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                      {(['STR', 'DEX', 'INT', 'CHA', 'LUCK'] as Array<keyof CharacterStats>).map(key => {
+                        const value = selectedItem.statBonus?.[key] ?? 0;
+                        if (!value) return null;
+
+                        const labelMap: Record<keyof CharacterStats, string> = {
+                          STR: '力量',
+                          DEX: '敏捷',
+                          INT: '智力',
+                          CHA: '魅力',
+                          LUCK: '幸运',
+                        };
+
+                        const isPositive = value > 0;
+                        const sign = value > 0 ? '+' : '';
+
+                        return (
+                          <span
+                            key={key}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              isPositive
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : 'bg-red-50 text-red-700 border-red-200'
+                            }`}
+                          >
+                            {labelMap[key]} {sign}{value}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>

@@ -58,6 +58,8 @@ export interface Item {
   icon: string;
   rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
   quantity?: number; // 仅用于消耗品（Consumable），其他类型忽略
+   // 装备 / 传奇物品对角色五维的加成（或副作用）
+   statBonus?: Partial<CharacterStats>;
 }
 
 export interface LogEntry {
