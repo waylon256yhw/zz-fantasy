@@ -10,6 +10,8 @@
  * - Pattern matching on natural language
  */
 
+import { clampGold } from '../../constants';
+
 export interface GameEvent {
   type: 'COMBAT' | 'VICTORY' | 'DEFEAT' | 'ITEM_FOUND' | 'GOLD_FOUND' | 'REST' | 'SHOP' | 'LEVEL_UP';
   data?: any;
@@ -210,7 +212,7 @@ export function applyEvents(
 
   return {
     hp: newHp,
-    gold: newGold,
+    gold: clampGold(newGold),
     exp: newExp,
     notifications,
   };

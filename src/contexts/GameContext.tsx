@@ -12,7 +12,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Character, LogEntry, Item } from '../../types';
 import { DZMMService } from '../services/dzmmService';
 import { initializeHpMp, refreshHpMp } from '../utils/hpMpSystem';
-import { LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, getItemInstance, ALL_ITEMS } from '../../constants';
+import { LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, getItemInstance, ALL_ITEMS, clampGold, MAX_STACK } from '../../constants';
 
 interface GameContextType {
   // State
@@ -160,7 +160,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     // 扣除金币，仅点亮荣誉墙，不进入背包
-    setCharacter(prev => prev ? { ...prev, gold: prev.gold - LEGENDARY_SHOP_PRICE } : prev);
+    setCharacter(prev => prev ? { ...prev, gold: clampGold(prev.gold - LEGENDARY_SHOP_PRICE) } : prev);
 
     setShopState(prev => ({
       ...prev,
@@ -193,6 +193,51 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const addItem = (item: Item) => {
     setCharacter(prev => {
       if (!prev) return prev;
+
+      // 消耗品尝试堆叠（按名称），单格上限 99，不产生同名新格
+      if (item.type === 'Consumable') {
+        const existingIndex = prev.inventory.findIndex(
+          i => i.type === 'Consumable' && i.name === item.name
+        );
+
+        const incomingQty = item.quantity ?? 1;
+
+        if (existingIndex !== -1) {
+          const inventory = [...prev.inventory];
+          const existing = inventory[existingIndex];
+          const currentQty = existing.quantity ?? 1;
+          const spaceLeft = MAX_STACK - currentQty;
+
+          if (spaceLeft <= 0) {
+            // 已满格，直接丢弃新数量，不新建同名格子
+            return prev;
+          }
+
+          const addQty = Math.min(spaceLeft, incomingQty);
+          inventory[existingIndex] = {
+            ...existing,
+            quantity: currentQty + addQty,
+          };
+
+          return {
+            ...prev,
+            inventory,
+          };
+        }
+
+        // 如果没有同名消耗品，则新增格子（自身数量也限制在上限内）
+        const clampedItem: Item = {
+          ...item,
+          quantity: Math.min(incomingQty, MAX_STACK),
+        };
+
+        return {
+          ...prev,
+          inventory: [...prev.inventory, clampedItem],
+        };
+      }
+
+      // 非消耗品：直接新增格子
       return {
         ...prev,
         inventory: [...prev.inventory, item],
@@ -314,6 +359,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
         ...hpMpValues,
         currentHp: fluctuatedValues.currentHp,
         currentMp: fluctuatedValues.currentMp,
+      };
+    }
+
+    // Clamp gold to global cap
+    if (character.gold !== undefined) {
+      character = {
+        ...character,
+        gold: clampGold(character.gold),
       };
     }
 

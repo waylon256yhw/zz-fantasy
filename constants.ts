@@ -211,6 +211,28 @@ export const ALL_ITEMS = {
   OVERLORD_PROOF: { id: 'overlord_proof', name: '霸主之证', description: '集齐万宝阁所有传奇宝物后颁发的荣耀勋章。持有者被视为艾瑟瑞亚的传奇霸主。', type: 'Key' as const, rarity: 'Legendary' as const, icon: IMAGES.bg.valley },
 } as const;
 
+// 酒馆餐厅菜单（售卖所有食物与饮品类消耗品）
+export const RESTAURANT_ITEMS: Array<{ key: keyof typeof ALL_ITEMS; price: number }> = [
+  { key: 'BREAD', price: 30 },
+  { key: 'APPLE_SNACK', price: 25 },
+  { key: 'STAMINA_STEW', price: 70 },
+  { key: 'TAVERN_BEER', price: 40 },
+  { key: 'FOREST_BERRIES', price: 35 },
+  { key: 'SWEET_CAKE', price: 60 },
+  { key: 'MORNING_CROISSANT', price: 35 },
+  { key: 'GRILLED_FISH', price: 55 },
+  { key: 'FRESH_JUICE', price: 30 },
+  { key: 'STREET_KEBAB', price: 45 },
+  { key: 'COUNTRY_LOAF', price: 50 },
+  { key: 'ROAST_MEAT', price: 85 },
+  { key: 'HONEY_PANCAKES', price: 65 },
+  { key: 'APPLE_PIE', price: 50 },
+  { key: 'RAMEN_BOWL', price: 70 },
+  { key: 'RICE_SET', price: 60 },
+  { key: 'SUSHI_PLATTER', price: 90 },
+  { key: 'FRUIT_TART', price: 65 },
+];
+
 // 辅助函数：获取物品常量的副本（用于添加到背包）
 // 重要：添加物品时必须使用此函数，确保每个物品有唯一ID
 export function getItemInstance(itemKey: keyof typeof ALL_ITEMS, quantity?: number): Item {
@@ -222,7 +244,8 @@ export function getItemInstance(itemKey: keyof typeof ALL_ITEMS, quantity?: numb
 
   // 仅为消耗品设置数量
   if (template.type === 'Consumable') {
-    item.quantity = quantity ?? 1;
+    const baseQty = quantity ?? 1;
+    item.quantity = clampStack(baseQty);
   }
 
   return item;
@@ -330,6 +353,22 @@ export const LEGENDARY_SHOP_ITEMS: Array<keyof typeof ALL_ITEMS> = [
   'RELIC_STAR_CRYSTAL',
   'RELIC_WINGED_HOURGLASS',
 ];
+
+// 全局金币与堆叠上限
+export const MAX_GOLD = 100000;
+export const MAX_STACK = 99;
+
+export function clampGold(value: number): number {
+  if (value < 0) return 0;
+  if (value > MAX_GOLD) return MAX_GOLD;
+  return value;
+}
+
+export function clampStack(quantity: number): number {
+  if (quantity < 1) return 1;
+  if (quantity > MAX_STACK) return MAX_STACK;
+  return quantity;
+}
 
 // 获取所有可用任务（未接受且未完成）
 export function getAvailableQuests(activeQuestIds: string[], completedQuestIds: string[]): Quest[] {

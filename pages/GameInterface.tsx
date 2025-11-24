@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { TypewriterText } from '../components/RPGComponents';
 import { Character, LogEntry, Item, ClassType } from '../types';
-import { STARTING_LOGS, CLASS_LABELS, IMAGES, getAvailableQuests, getActiveQuests, getCompletedQuests, ALL_ITEMS, LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, MAP_GRAPH, MAP_SHORT_NAMES } from '../constants';
+import { STARTING_LOGS, CLASS_LABELS, IMAGES, getAvailableQuests, getActiveQuests, getCompletedQuests, ALL_ITEMS, LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, MAP_GRAPH, MAP_SHORT_NAMES, RESTAURANT_ITEMS, getItemInstance, clampGold, MAX_STACK } from '../constants';
 import { useGame, ShopState } from '../src/contexts/GameContext';
 import { DZMMService } from '../src/services/dzmmService';
 import { buildSystemPrompt, buildPlayerContext, buildOpeningGreeting } from '../src/utils/promptBuilder';
@@ -33,11 +33,12 @@ import {
   Coins,
   Crown,
   Map,
-  MapPin
+  MapPin,
+  Utensils
 } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 
-type SheetType = 'INVENTORY' | 'STATUS' | 'GUILD' | 'SHOP' | 'HONOR' | 'MAP' | null;
+type SheetType = 'INVENTORY' | 'STATUS' | 'GUILD' | 'SHOP' | 'HONOR' | 'MAP' | 'RESTAURANT' | null;
 const CHEAT_MODE = false; // 开发专用金手指，发布前请置为 false
 
 const getInitialLocationForClass = (classType: ClassType): string => {
@@ -201,7 +202,7 @@ ${action}
               // Update character with new values (use functional update to preserve latest state)
               setCharacter(prev => prev ? {
                 ...prev,
-                gold: updates.gold
+                gold: clampGold(updates.gold)
               } : prev);
             }
 
@@ -283,7 +284,7 @@ ${action}
                     ...prev,
                     activeQuests: newActiveQuests,
                     completedQuests: newCompletedQuests,
-                    gold: prev.gold + questResult.rewards.gold,
+                    gold: clampGold(prev.gold + questResult.rewards.gold),
                     level: expResult.newLevel,
                     exp: expResult.newExp,
                     ...hpMpUpdates,
@@ -394,6 +395,67 @@ ${action}
     navigate('/save', { state: { fromGame: true } });
   };
 
+  const handleRestaurantPurchase = (key: keyof typeof ALL_ITEMS, price: number) => {
+    if (!character) return;
+
+    const template = ALL_ITEMS[key];
+
+    // 查找已存在的同名消耗品堆叠
+    const existingStack = character.inventory.find(
+      item => item.type === 'Consumable' && item.name === template.name
+    );
+
+    if (existingStack) {
+      const currentQty = existingStack.quantity ?? 1;
+      if (currentQty >= MAX_STACK) {
+        alert('该料理单格最多堆叠 99 个，请先使用一些再购买');
+        return;
+      }
+    }
+
+    if (character.gold < price) {
+      alert('金币不足，无法购买这道料理');
+      return;
+    }
+
+    setCharacter(prev => {
+      if (!prev) return prev;
+
+      // 如果已有同名消耗品，则叠加数量（单格上限 99）
+      const existingIndex = prev.inventory.findIndex(
+        item => item.type === 'Consumable' && item.name === template.name
+      );
+
+      if (existingIndex !== -1) {
+        const inventory = [...prev.inventory];
+        const existing = inventory[existingIndex];
+        const currentQty = existing.quantity ?? 1;
+        const newQty = Math.min(currentQty + 1, MAX_STACK);
+        inventory[existingIndex] = { ...existing, quantity: newQty };
+
+        return {
+          ...prev,
+          gold: clampGold(prev.gold - price),
+          inventory,
+        };
+      }
+
+      // 否则新增一个储存格（数量默认 1，不会超过上限）
+      const itemInstance = getItemInstance(key);
+      return {
+        ...prev,
+        gold: clampGold(prev.gold - price),
+        inventory: [...prev.inventory, itemInstance],
+      };
+    });
+
+    addLog({
+      speaker: '系统',
+      text: `你在酒馆点了「${template.name}」，花费了 ${price} G。`,
+      type: 'system',
+    });
+  };
+
   if (!character) return null;
 
   return (
@@ -481,19 +543,20 @@ ${action}
           
           {/* Header Navigation - Adapted for Mobile */}
           <header className="flex-none flex items-center mb-4 px-0 md:px-1 z-50 h-14">
-              {/* Scrollable Nav Container for Mobile */}
-              <div className="flex gap-1.5 md:gap-2 flex-1 items-center overflow-x-auto no-scrollbar pb-1 -mb-1 pl-3 pr-6 md:pl-2 md:pr-3">
-                  <NavButton icon={<Backpack size={18} />} label="背包" onClick={() => setActiveSheet('INVENTORY')} />
-                  <NavButton icon={<User size={18} />} label="状态" onClick={() => setActiveSheet('STATUS')} />
-                  <NavButton icon={<ShieldCheck size={18} />} label="公会" onClick={() => setActiveSheet('GUILD')} />
-                  <NavButton icon={<ShoppingBag size={18} />} label="商店" onClick={() => { refreshShop(); setActiveSheet('SHOP'); }} />
-                  <NavButton icon={<Crown size={18} />} label="荣誉墙" onClick={() => setActiveSheet('HONOR')} />
-                  <NavButton icon={<Map size={18} />} label="地图" onClick={() => setActiveSheet('MAP')} />
+              {/* Compact single-row Nav Container */}
+              <div className="flex flex-nowrap gap-1 md:gap-2 flex-1 items-center overflow-x-auto no-scrollbar pb-1 -mb-1 pl-2 pr-4 md:pl-2 md:pr-3">
+                  <NavButton icon={<Backpack size={16} />} label="背包" onClick={() => setActiveSheet('INVENTORY')} />
+                  <NavButton icon={<User size={16} />} label="状态" onClick={() => setActiveSheet('STATUS')} />
+                  <NavButton icon={<ShieldCheck size={16} />} label="公会" onClick={() => setActiveSheet('GUILD')} />
+                  <NavButton icon={<ShoppingBag size={16} />} label="商店" onClick={() => { refreshShop(); setActiveSheet('SHOP'); }} />
+                  <NavButton icon={<Utensils size={16} />} label="餐厅" onClick={() => setActiveSheet('RESTAURANT')} />
+                  <NavButton icon={<Crown size={16} />} label="荣誉墙" onClick={() => setActiveSheet('HONOR')} />
+                  <NavButton icon={<Map size={16} />} label="地图" onClick={() => setActiveSheet('MAP')} />
                   {CHEAT_MODE && (
                     <button
                       onClick={() => {
                         if (!character) return;
-                        setCharacter(prev => prev ? { ...prev, gold: prev.gold + 1000 } : prev);
+                        setCharacter(prev => prev ? { ...prev, gold: clampGold(prev.gold + 1000) } : prev);
                         addLog({ speaker: '系统', text: '[DEV] 金币 +1000 (测试专用)', type: 'system' });
                       }}
                       className="bg-red-50 text-red-600 px-3 py-2 rounded-lg border border-red-200 shadow-sm text-[11px] font-bold hover:bg-red-100 active:scale-95 shrink-0 flex items-center gap-1"
@@ -503,7 +566,7 @@ ${action}
                     </button>
                   )}
                   <div className="w-px h-6 md:h-8 bg-[#E6D7C3] mx-0.5 md:mx-1 shrink-0" />
-                  <NavButton icon={<Menu size={18} />} label="系统" onClick={handleSystemClick} />
+                  <NavButton icon={<Menu size={16} />} label="系统" onClick={handleSystemClick} />
 
                   <button
                     onClick={() => navigate('/')}
@@ -761,6 +824,12 @@ ${action}
                    alert('金币不足或没有可售物品');
                  }
                }} />}
+              {activeSheet === 'RESTAURANT' && (
+                <RestaurantSheet
+                  gold={character.gold}
+                  onPurchase={handleRestaurantPurchase}
+                />
+              )}
               {activeSheet === 'HONOR' && <HonorWall shopState={shopState} onClaim={claimOverlordProof} />}
               {activeSheet === 'MAP' && <MapSheet location={location} onSelect={(loc) => {
                  setActiveSheet(null);
@@ -859,10 +928,78 @@ const CornerDecor = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const RestaurantSheet = ({ gold, onPurchase }: { gold: number; onPurchase: (key: keyof typeof ALL_ITEMS, price: number) => void }) => {
+  return (
+    <div className="h-full flex flex-col bg-[#FFFBF0]">
+      <div className="px-4 pr-16 py-4 md:px-6 md:pr-20 md:py-6 border-b border-[#E6D7C3] flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="bg-[#FF9FAA] text-white p-2.5 md:p-3 rounded-2xl shadow-md">
+            <Utensils size={32} />
+          </div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-serif font-black text-[#5D4037] leading-tight">酒馆餐厅</h2>
+            <p className="text-[#8B7355] font-bold text-xs md:text-sm mt-0.5">热食与小酌</p>
+          </div>
+        </div>
+        <div className="text-right flex flex-col items-end md:items-end mt-2 md:mt-0">
+          <div className="text-[10px] font-bold text-[#8B7355] uppercase tracking-wide">Gold</div>
+          <div className="text-lg md:text-2xl font-black text-[#FFD166] flex items-baseline gap-1">
+            <span className="font-mono">{gold}</span>
+            <span className="text-[10px] md:text-xs text-[#8B7355]">G</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {RESTAURANT_ITEMS.map(({ key, price }) => {
+            const item = ALL_ITEMS[key];
+            const affordable = gold >= price;
+            return (
+              <motion.div
+                key={key}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-white rounded-2xl border-2 border-[#F0EAE0] shadow-sm p-4 flex flex-col gap-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl bg-[#FFF7E0] flex items-center justify-center">
+                    <img src={item.icon} alt={item.name} className="w-10 h-10 object-contain" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-[#5D4037] truncate">{item.name}</h3>
+                    <p className="text-xs text-[#8B7355] line-clamp-2">{item.description}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-auto pt-1">
+                  <span className="px-3 py-1 bg-[#FFD166]/30 text-[#C27B28] rounded-full text-xs font-bold">
+                    {price} G
+                  </span>
+                  <button
+                    onClick={() => onPurchase(key, price)}
+                    disabled={!affordable}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm active:scale-95 transition-all ${
+                      affordable
+                        ? 'bg-[#5D4037] text-white hover:bg-[#FF9FAA]'
+                        : 'bg-[#E6D7C3] text-[#8B7355] cursor-not-allowed opacity-70'
+                    }`}
+                  >
+                    {affordable ? '点这道菜' : '金币不足'}
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const NavButton = ({ icon, label, onClick }: { icon: React.ReactNode, label: string, onClick: () => void }) => (
   <button
     onClick={onClick}
-    className="group bg-white/80 hover:bg-white text-[#5D4037] hover:text-[#FF9FAA] p-1.5 md:p-2.5 rounded-xl border border-white shadow-sm transition-all active:scale-95 flex items-center gap-1.5 md:gap-2 shrink-0"
+    className="group bg-white/80 hover:bg-white text-[#5D4037] hover:text-[#FF9FAA] px-1.5 py-1 md:px-2.5 md:py-2 rounded-lg md:rounded-xl border border-white shadow-sm transition-all active:scale-95 flex items-center gap-1 md:gap-1.5 shrink-0"
     title={label}
   >
     {icon}
