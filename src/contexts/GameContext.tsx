@@ -9,11 +9,12 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Character, LogEntry, Item, CombatState, Enemy, CombatResult, CombatLog } from '../../types';
+import { Character, CharacterStats, LogEntry, Item, CombatState, Enemy, CombatResult, CombatLog } from '../../types';
 import { DZMMService } from '../services/dzmmService';
 import { initializeHpMp, refreshHpMp } from '../utils/hpMpSystem';
-import { LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, getItemInstance, ALL_ITEMS, clampGold, MAX_STACK } from '../../constants';
+import { LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, getItemInstance, ALL_ITEMS, clampGold, MAX_STACK, CLASS_LABELS } from '../../constants';
 import { encounterRandomEnemy } from '../utils/enemySystem';
+import { getRegionByLocation } from '../config/worldRegions';
 import {
   initCombatState,
   executePlayerAttack,
@@ -118,6 +119,16 @@ interface SaveData {
   };
 }
 
+// Helper: extract DM总结正文，忽略 XML 外壳
+const extractCombatSummaryFromXml = (raw: string): string => {
+  if (!raw) return '';
+  const match = raw.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i);
+  if (match && match[1]) {
+    return match[1].trim();
+  }
+  return raw.trim();
+};
+
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const SAVE_KEY_PREFIX = 'aetheria_save_slot_';
@@ -134,7 +145,7 @@ export interface ShopState {
 export function GameProvider({ children }: { children: ReactNode }) {
   const [character, setCharacter] = useState<Character | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [location, setLocation] = useState<string>('王都阿斯拉 - 中央广场');
+  const [location, setLocationState] = useState<string>('王都阿斯拉 - 中央广场');
   const [isDzmmReady, setIsDzmmReady] = useState(false);
   const [currentOpening, setCurrentOpening] = useState<string>('main');
   const [selectedModel, setSelectedModel] = useState<string>('nalang-max-0826'); // Default to Max model
@@ -147,6 +158,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     achievementClaimed: false,
   }));
   const [devForceTreasureMonster, setDevForceTreasureMonster] = useState<boolean>(false);
+  const [warnedRegions, setWarnedRegions] = useState<Set<string>>(new Set()); // Track regions we've warned about
   const [combatState, setCombatState] = useState<CombatState>({
     isInCombat: false,
     currentEnemy: null,
@@ -313,11 +325,38 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setLogs([]);
   };
 
+  // Enhanced setLocation with region danger warnings (Phase 2)
+  const setLocation = (newLocation: string) => {
+    setLocationState(newLocation);
+
+    // Phase 2: Check for region danger and warn if needed
+    if (!character) return;
+
+    const region = getRegionByLocation(newLocation);
+    if (!region) return;
+
+    // Only warn once per region per session
+    if (warnedRegions.has(region.id)) return;
+
+    const softThreshold = 2;
+    const isDangerous = character.level + softThreshold < region.levelRange.min;
+
+    if (isDangerous) {
+      setWarnedRegions(prev => new Set(prev).add(region.id));
+      addLog({
+        type: 'system',
+        speaker: '系统',
+        text: `⚠️ 你隐约察觉这里的魔物异常危险（推荐等级 ≥ ${region.levelRange.min} 级），而你目前只有 ${character.level} 级。`,
+      });
+    }
+  };
+
   // Reset all game state (for starting new game)
   const resetGameState = () => {
     setCharacter(null);
     setLogs([]);
-    setLocation('王都阿斯拉 - 中央广场');
+    setLocationState('王都阿斯拉 - 中央广场');
+    setWarnedRegions(new Set());
     setCurrentOpening('main');
     setLastSaveTimestamp(0);
     setLastSaveLogsCount(0);
@@ -519,8 +558,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
       };
     });
 
-    // 生成新敌人（支持 DEV 强制珍宝怪）
-    const enemy = encounterRandomEnemy(character.level, location, devForceTreasureMonster);
+    // Phase 2: 获取当前区域配置
+    const region = getRegionByLocation(location);
+
+    // 生成新敌人（支持 DEV 强制珍宝怪 + 区域感知）
+    const enemy = encounterRandomEnemy(
+      character.level,
+      location,
+      devForceTreasureMonster,
+      region
+    );
 
     // 初始化战斗状态：重置回合数等
     // 如果之前不在战斗中（showSettlement=false且isInCombat=false），清空sessionResults
@@ -984,7 +1031,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   // Return to adventure (generate AI prompt with all battle results)
-  const returnToAdventure = () => {
+  const returnToAdventure = async () => {
     if (!character) return;
 
     // Generate summary prompt for all battles in this session
@@ -1000,40 +1047,40 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const totalExp = victories.reduce((sum, r) => sum + r.rewards.exp, 0);
       const allItems = victories.flatMap(r => r.rewards.items);
 
-      // Build summary text with clear categorization
-      let summary = `[战斗总结] 本次探险共进行了 ${results.length} 场战斗\n\n`;
+      // Build structured combat data summary（这部分既给模型看，也会以玩家气泡形式展示）
+      let playerSummaryText = `[战斗数据汇总]\n本次探险进行了 ${results.length} 场战斗：\n\n`;
 
       // Victory section
       if (victories.length > 0) {
-        summary += `✓ 胜利 ${victories.length} 次\n`;
-        summary += `  ${victories.map(r => `[${r.enemy.rank}级] ${r.enemy.name} (Lv.${r.enemy.level})`).join('、')}\n\n`;
+        playerSummaryText += `胜利：${victories.length} 次\n`;
+        playerSummaryText += victories.map(r => `  - ${r.enemy.name} (${r.enemy.rank}级 Lv.${r.enemy.level})`).join('\n') + '\n\n';
       }
 
       // Defeat section
       if (defeats.length > 0) {
-        summary += `✗ 失败 ${defeats.length} 次\n`;
-        summary += `  ${defeats.map(r => `[${r.enemy.rank}级] ${r.enemy.name} (Lv.${r.enemy.level})`).join('、')}`;
-        // Show failure reason for the defeat (should only be one)
-        if (defeats[0].failureReason) {
-          summary += ` - ${defeats[0].failureReason}`;
-        }
-        summary += '\n\n';
+        playerSummaryText += `失败：${defeats.length} 次\n`;
+        playerSummaryText += defeats.map(r => {
+          let line = `  - ${r.enemy.name} (${r.enemy.rank}级 Lv.${r.enemy.level})`;
+          if (r.failureReason) line += ` - ${r.failureReason}`;
+          return line;
+        }).join('\n') + '\n\n';
       }
 
       // Retreat section
       if (retreats.length > 0) {
-        summary += `➤ 撤退 ${retreats.length} 次\n`;
-        summary += `  ${retreats.map(r => `[${r.enemy.rank}级] ${r.enemy.name} (Lv.${r.enemy.level})`).join('、')}`;
-        // Show retreat reason if available
-        if (retreats.length === 1 && retreats[0].failureReason) {
-          summary += ` - ${retreats[0].failureReason}`;
-        }
-        summary += '\n\n';
+        playerSummaryText += `撤退：${retreats.length} 次\n`;
+        playerSummaryText += retreats.map(r => {
+          let line = `  - ${r.enemy.name} (${r.enemy.rank}级 Lv.${r.enemy.level})`;
+          if (r.failureReason) line += ` - ${r.failureReason}`;
+          return line;
+        }).join('\n') + '\n\n';
       }
 
       // Rewards (only if there were victories)
       if (victories.length > 0) {
-        summary += `累计获得：${totalGold} 金币、${totalExp} 经验值`;
+        playerSummaryText += `累计收获：\n`;
+        playerSummaryText += `  - 金币：${totalGold}\n`;
+        playerSummaryText += `  - 经验值：${totalExp}\n`;
         if (allItems.length > 0) {
           // 同种战利品堆叠展示
           const itemCounts: Record<string, number> = {};
@@ -1042,14 +1089,96 @@ export function GameProvider({ children }: { children: ReactNode }) {
             const name = def ? def.name : key;
             itemCounts[name] = (itemCounts[name] || 0) + 1;
           });
-          const parts = Object.entries(itemCounts).map(
-            ([name, count]) => `${name}×${count}`
-          );
-          summary += `、道具：${parts.join('、')}`;
+          playerSummaryText += `  - 道具：${Object.entries(itemCounts).map(([name, count]) => `${name}×${count}`).join('、')}\n`;
         }
       }
 
-      addLog({ speaker: character.name, text: summary, type: 'system' });
+      // Build full prompt for AI（在结构化数据基础上补充角色设定与叙事要求）
+      const classLabel = CLASS_LABELS[character.classType];
+      let combatDataPrompt = playerSummaryText;
+
+      combatDataPrompt += `\n[角色设定]\n`;
+      combatDataPrompt += `玩家姓名：${character.name}\n`;
+      combatDataPrompt += `玩家职业：${classLabel}\n`;
+      combatDataPrompt += `玩家当前所在地点：${location}\n`;
+      combatDataPrompt += `你以全知视角出发，用生动的文字记录和总结这次战斗。\n`;
+      combatDataPrompt += `在这段旅程中，玩家的妹妹「莉亚」一直陪在他身边，性格活泼、稍微有点毒舌，但非常在意玩家的安危。\n`;
+
+      combatDataPrompt += `\n[叙事指令]\n`;
+      combatDataPrompt += `1. 用第二人称“你”来称呼玩家，用第三人称描写莉亚（例如“莉亚一边……一边……”）。\n`;
+      combatDataPrompt += `2. 用 2-3 句话，总结本次战斗的重要过程和收获。\n`;
+      combatDataPrompt += `3. 总结中要明确提到莉亚在战斗过程中的反应、吐槽或担心，以及她对玩家表现的评价（既可以调侃，也要有真心的肯定）。\n`;
+      combatDataPrompt += `4. 语气保持轻松、有点吐槽又温暖，像 DM 在记录冒险日志。\n`;
+      combatDataPrompt += `5. 不要使用列表或分点，只写连续自然的叙事句子。\n`;
+      combatDataPrompt += `6. 不要逐条复述上面的结构化数据，只挑最重要的亮点写。\n`;
+
+      combatDataPrompt += `\n[输出格式]\n`;
+      combatDataPrompt += `请只输出一个 XML 片段，形如：\n`;
+      combatDataPrompt += `<summary>\n`;
+      combatDataPrompt += `（这里是你的总结文本，不要再包含任何提示词或标签）\n`;
+      combatDataPrompt += `</summary>\n`;
+      combatDataPrompt += `不要输出其它说明、前后缀或额外标签。\n`;
+
+      // Show combat summary prompt as a player bubble（只展示结构化数据部分）
+      addLog({
+        speaker: character.name,
+        text: playerSummaryText,
+        type: 'narration',
+      });
+
+      // Build messages array for DZMM API
+      // 这里刻意不带入前文对话，只发送本次战斗汇总，
+      // 让模型专注于总结本次战斗，而不是延续聊天语境。
+      const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+        {
+          role: 'user',
+          content: combatDataPrompt,
+        },
+      ];
+
+      // Create placeholder log entry for AI response
+      const aiLogId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const placeholderLog: LogEntry = {
+        id: aiLogId,
+        speaker: '',
+        text: '',
+        type: 'narration'
+      };
+      setLogs(prev => [...prev, placeholderLog]);
+
+      try {
+        // Call DZMM API to generate narrative summary
+        await DZMMService.completions(
+          {
+            model: 'nalang-turbo-0826', // Fast model for simple summary task
+            messages,
+            maxTokens: 500 // Summary doesn't need much
+          },
+          (content, done) => {
+            if (done) {
+              const cleaned = extractCombatSummaryFromXml(content);
+              setLogs(prev => prev.map(log =>
+                log.id === aiLogId ? { ...log, text: cleaned } : log
+              ));
+              console.log('[Combat Summary] AI narrative generated:', cleaned);
+            } else {
+              // Streaming updates: 直接显示当前内容，等 done 时再用 XML 裁剪结果
+              setLogs(prev => prev.map(log =>
+                log.id === aiLogId ? { ...log, text: content } : log
+              ));
+            }
+          }
+        );
+      } catch (error) {
+        console.error('[Combat Summary] Failed to generate narrative:', error);
+        // Fallback: remove placeholder and show simple text summary
+        setLogs(prev => prev.filter(log => log.id !== aiLogId));
+        addLog({
+          speaker: '',
+          text: `战斗结束。你在这次探险中${victories.length > 0 ? `击败了 ${victories.length} 个敌人，获得了 ${totalGold} 金币和 ${totalExp} 经验值` : '经历了艰苦的战斗'}。`,
+          type: 'narration'
+        });
+      }
     }
 
     // Reset combat state completely
@@ -1171,7 +1300,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     // Restore state
     setCharacter(character);
     setLogs(saveData.logs);
-    setLocation(saveData.location);
+    setLocationState(saveData.location); // Use direct setter to avoid warning trigger on load
     setCurrentOpening(saveData.opening || 'main');
 
     // Restore save tracking (treat as just saved, so no unsaved changes)

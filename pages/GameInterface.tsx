@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { TypewriterText } from '../components/RPGComponents';
-import { Character, LogEntry, Item, ClassType } from '../types';
+import { Character, CharacterStats, LogEntry, Item, ClassType } from '../types';
 import { STARTING_LOGS, CLASS_LABELS, IMAGES, getAvailableQuests, getActiveQuests, getCompletedQuests, ALL_ITEMS, LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, MAP_GRAPH, MAP_SHORT_NAMES, RESTAURANT_ITEMS, SHOP_POTION_ITEMS, getItemInstance, clampGold, MAX_STACK } from '../constants';
 import { useGame, ShopState } from '../src/contexts/GameContext';
 import { DZMMService } from '../src/services/dzmmService';
@@ -43,7 +43,7 @@ import { CombatResultSheet } from '../components/CombatResultSheet';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 
 type SheetType = 'INVENTORY' | 'STATUS' | 'GUILD' | 'SHOP' | 'HONOR' | 'MAP' | 'RESTAURANT' | 'COMBAT' | null;
-const CHEAT_MODE = true; // 开发专用金手指，发布前请置为 false
+const CHEAT_MODE = false; // 开发专用金手指，发布前请置为 false
 
 const getInitialLocationForClass = (classType: ClassType): string => {
   switch (classType) {
@@ -173,8 +173,12 @@ const GameInterface: React.FC = () => {
     setLogs(updatedLogs);
 
     try {
-      // Build messages array for DZMM API (last 15 entries, excluding the AI placeholder)
-      const recentLogs = updatedLogs.filter(log => log.id !== aiLogId).slice(-15);
+      // Build messages array for DZMM API (last 15 dialogue entries, excluding the AI placeholder)
+      // 只把真正的“对话”日志发送给模型，像战斗总结这类叙事性（type === 'narration'）的玩家气泡
+      // 只在前端展示，不进入提示词上下文，避免干扰模型注意力。
+      const recentLogs = updatedLogs
+        .filter(log => log.id !== aiLogId && log.type === 'dialogue')
+        .slice(-15);
       const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
       // Add system prompt as first user message (with active quest info)
@@ -965,6 +969,7 @@ ${finalAction}
                  <CombatSheet
                    character={character}
                    combatState={combatState}
+                   location={location}
                    onAction={(action) => {
                      if (action === 'encounter') {
                        startCombat();
@@ -1629,7 +1634,8 @@ const ShopSheet = ({ shopState, gold, onRefresh, onPurchase, onPurchasePotion }:
         </div>
       </div>
 
-      <div className="flex-1 p-6 space-y-4">
+      {/* Scrollable content area for mobile，避免战斗补给卡片撑掉下方传奇物品 */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
         {/* Battle Potions Section */}
         <div className="bg-white rounded-2xl border-2 border-[#F0EAE0] shadow-sm p-4">
           <div className="flex items-center justify-between mb-3">
@@ -1839,12 +1845,12 @@ const HonorWall = ({ shopState, onClaim }: { shopState: ShopState; onClaim: () =
                 <p className="text-sm text-[#8B7355] leading-relaxed">{selectedItem.description}</p>
 
                 {/* Stat bonuses preview (if any) */}
-                {selectedItem.statBonus && (
+                {'statBonus' in selectedItem && selectedItem.statBonus && (
                   <div className="mt-2 bg-[#FFFBF0] border border-[#E6D7C3] rounded-2xl px-3 py-2 w-full max-w-xs">
                     <div className="text-xs font-bold text-[#5D4037] mb-1">属性加成</div>
                     <div className="flex flex-wrap gap-1.5 justify-center">
                       {(['STR', 'DEX', 'INT', 'CHA', 'LUCK'] as Array<keyof CharacterStats>).map(key => {
-                        const value = selectedItem.statBonus?.[key] ?? 0;
+                        const value = ('statBonus' in selectedItem && selectedItem.statBonus?.[key]) ?? 0;
                         if (!value) return null;
 
                         const labelMap: Record<keyof CharacterStats, string> = {

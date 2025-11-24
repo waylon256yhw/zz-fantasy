@@ -81,6 +81,10 @@ export interface GameState {
 
 // ========== Combat System Types ==========
 
+export type BiomeType = 'capital' | 'forest' | 'ruins' | 'mountains' | 'cave' | 'wasteland' | 'plains' | 'swamp';
+export type EnemyFamily = 'slime' | 'goblin' | 'undead' | 'beast' | 'elemental' | 'demon' | 'construct' | 'human' | 'dragon' | 'insect';
+export type ElementType = 'none' | 'fire' | 'ice' | 'shadow' | 'nature' | 'thunder' | 'holy';
+
 export interface Enemy {
   id: string;
   name: string;
@@ -96,6 +100,11 @@ export interface Enemy {
     exp: number;
     items?: string[]; // Item names from ALL_ITEMS
   };
+  // Phase 2 Expansion: Visual Identity
+  icon: string;
+  family: EnemyFamily;
+  element: ElementType;
+  biomes: BiomeType[];
 }
 
 export interface CombatLog {

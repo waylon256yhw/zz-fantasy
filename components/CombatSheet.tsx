@@ -10,22 +10,58 @@ import { Character, CharacterStats, CombatState } from '../types';
 import { CombatLogDisplay } from './CombatLogDisplay';
 import { canPerformAction } from '../src/utils/combatSystem';
 import { COMBAT_CONFIG } from '../src/config/combatConfig';
+import { getRegionByLocation } from '../src/config/worldRegions';
+import { getTargetEnemyLevel } from '../src/utils/enemySystem';
 
 interface CombatSheetProps {
   character: Character;
   combatState: CombatState;
+  location: string;
   onAction: (action: 'attack' | 'defend' | 'retreat' | 'encounter' | 'skip' | 'useHealPotion' | 'useArcaneTonic') => void;
 }
 
 export const CombatSheet: React.FC<CombatSheetProps> = ({
   character,
   combatState,
+  location,
   onAction,
 }) => {
   const { isInCombat, currentEnemy, combatLogs, currentTurn, maxTurns, isPlayerStunned, enemyNextAction } =
     combatState;
 
   const [showPotionPanel, setShowPotionPanel] = useState(false);
+
+  // Phase 2: Handle encounter with risk assessment
+  const handleEncounterClick = () => {
+    const region = getRegionByLocation(location);
+    if (!region) {
+      // No region config, proceed normally
+      onAction('encounter');
+      return;
+    }
+
+    // Calculate expected enemy level
+    const expectedLevel = getTargetEnemyLevel(region, character.level);
+    const levelDiff = expectedLevel - character.level;
+    const dangerThreshold = 4;
+
+    // High danger: show confirmation
+    if (levelDiff >= dangerThreshold) {
+      const confirmed = window.confirm(
+        `⚠️ 警告\n\n你的直觉告诉你这里的敌人远远强于现在的你（预估等级 ${expectedLevel} 级以上），确定要发起遭遇战吗？\n\n你的等级：${character.level}\n预估敌人：${expectedLevel}\n等级差距：+${levelDiff}`
+      );
+      if (!confirmed) return;
+    } else if (levelDiff >= 2) {
+      // Moderate danger: lighter warning
+      const confirmed = window.confirm(
+        `⚠️ 提示\n\n你感觉这里的魔物比你略强（预估等级 ${expectedLevel} 级），稍有不慎可能失败。\n\n确定要发起遭遇战吗？`
+      );
+      if (!confirmed) return;
+    }
+
+    // Proceed with encounter
+    onAction('encounter');
+  };
 
   const hasAnyStatBonus =
     character.statsBonus &&
@@ -89,12 +125,49 @@ export const CombatSheet: React.FC<CombatSheetProps> = ({
             className="mt-2 bg-red-50 border-2 border-red-300 rounded-xl p-2.5 shadow-md"
           >
             <div className="flex justify-between items-start mb-2">
-              <div>
-                <div className="text-sm text-red-900 font-bold">
-                  [{currentEnemy.rank}级] {currentEnemy.name}
-                  {currentEnemy.isTreasureMonster && ' ✨'}
+              <div className="flex items-center gap-2">
+                {/* Enemy Icon */}
+                {currentEnemy.icon && (
+                  <img
+                    src={currentEnemy.icon}
+                    alt={currentEnemy.name}
+                    className="w-12 h-12 rounded-lg border-2 border-red-400 bg-white shadow-sm object-cover"
+                  />
+                )}
+                <div>
+                  <div className="text-sm text-red-900 font-bold">
+                    [{currentEnemy.rank}级] {currentEnemy.name}
+                    {currentEnemy.isTreasureMonster && ' ✨'}
+                  </div>
+                  <div className="text-xs text-red-700">Lv.{currentEnemy.level}</div>
+                  {/* Element and Family Tags */}
+                  <div className="flex gap-1 mt-1">
+                    {currentEnemy.element && currentEnemy.element !== 'none' && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        currentEnemy.element === 'fire' ? 'bg-orange-200 text-orange-800' :
+                        currentEnemy.element === 'ice' ? 'bg-blue-200 text-blue-800' :
+                        currentEnemy.element === 'shadow' ? 'bg-purple-200 text-purple-800' :
+                        currentEnemy.element === 'nature' ? 'bg-green-200 text-green-800' :
+                        currentEnemy.element === 'thunder' ? 'bg-yellow-200 text-yellow-800' :
+                        currentEnemy.element === 'holy' ? 'bg-pink-200 text-pink-800' :
+                        'bg-gray-200 text-gray-800'
+                      }`}>
+                        {currentEnemy.element === 'fire' ? '🔥' :
+                         currentEnemy.element === 'ice' ? '❄️' :
+                         currentEnemy.element === 'shadow' ? '🌑' :
+                         currentEnemy.element === 'nature' ? '🌿' :
+                         currentEnemy.element === 'thunder' ? '⚡' :
+                         currentEnemy.element === 'holy' ? '✨' : ''}
+                        {currentEnemy.element}
+                      </span>
+                    )}
+                    {currentEnemy.family && (
+                      <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded">
+                        {currentEnemy.family}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-red-700">Lv.{currentEnemy.level}</div>
               </div>
               <div className="text-xs text-red-700 font-bold">
                 回合: {currentTurn}/{maxTurns}
@@ -138,9 +211,9 @@ export const CombatSheet: React.FC<CombatSheetProps> = ({
       {/* Action Buttons */}
       <div className="p-3 md:p-4 border-t border-[#E6D7C3] bg-white">
         {!isInCombat ? (
-          // Not in combat: Encounter button
+          // Not in combat: Encounter button with risk assessment
           <button
-            onClick={() => onAction('encounter')}
+            onClick={handleEncounterClick}
             disabled={!canStartEncounter}
             className={`w-full py-3 md:py-3.5 rounded-xl font-bold text-base md:text-lg shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${
               canStartEncounter
