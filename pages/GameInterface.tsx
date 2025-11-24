@@ -69,7 +69,6 @@ const GameInterface: React.FC = () => {
   const [editText, setEditText] = useState('');
   const [rerollingIndex, setRerollingIndex] = useState<number | null>(null);
   const [pendingLocation, setPendingLocation] = useState<string | null>(null);
-  const [pendingItemUses, setPendingItemUses] = useState<Array<{ itemId: string; itemName: string }>>([]);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -117,36 +116,10 @@ const GameInterface: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  const buildItemUseSummary = (uses: Array<{ itemId: string; itemName: string }>): string => {
-    const counts: Record<string, number> = {};
-    uses.forEach(u => {
-      counts[u.itemName] = (counts[u.itemName] || 0) + 1;
-    });
-    const parts = Object.entries(counts).map(([name, count]) => `${count}个${name}`);
-    return parts.length > 0 ? `我使用了${parts.join('，')}` : '';
-  };
-
   // Handle player action with DZMM API
   const handleAction = async (rawAction: string) => {
-    if ((!rawAction.trim() && pendingItemUses.length === 0) || !character || isGenerating) return;
-
-    let finalAction = rawAction.trim();
-
-    // 应用本轮静默记录的道具使用（如食物），并构建简洁提示语
-    if (pendingItemUses.length > 0) {
-      const summary = buildItemUseSummary(pendingItemUses);
-
-      // 实际消耗道具并结算AP
-      pendingItemUses.forEach(use => {
-        useItem(use.itemId);
-      });
-
-      setPendingItemUses([]);
-
-      finalAction = finalAction ? `${finalAction}\n${summary}` : summary;
-    }
-
-    if (!finalAction) return;
+    const finalAction = rawAction.trim();
+    if (!finalAction || !character || isGenerating) return;
 
     setIsGenerating(true);
     setInput('');
@@ -951,17 +924,15 @@ ${finalAction}
 
                  if (!item) return;
 
-                 // 静默记录本轮计划使用的食物，不立刻结算
                  if (item.type === 'Consumable') {
-                   const alreadyPlanned = pendingItemUses.filter(u => u.itemId === itemId).length;
-                   const maxQty = item.quantity ?? 1;
-                   if (alreadyPlanned >= maxQty) {
-                     alert('该道具本轮已全部加入使用列表');
-                     return;
-                   }
+                   // 立即消耗食物并恢复 AP（useItem 内部已经处理 AP 结算）
+                   useItem(itemId);
+                   autoSave();
+
+                   // 使用提示框而不是在对话区打印文本
+                   alert(`你吃掉了「${itemName}」，感觉恢复了一些体力。`);
                  }
 
-                 setPendingItemUses(prev => [...prev, { itemId, itemName }]);
                  setActiveSheet(null);
                }} />}
                {activeSheet === 'STATUS' && <StatusSheet character={character} />}

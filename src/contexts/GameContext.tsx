@@ -1111,6 +1111,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       combatDataPrompt += `4. 语气保持轻松、有点吐槽又温暖，像 DM 在记录冒险日志。\n`;
       combatDataPrompt += `5. 不要使用列表或分点，只写连续自然的叙事句子。\n`;
       combatDataPrompt += `6. 不要逐条复述上面的结构化数据，只挑最重要的亮点写。\n`;
+      combatDataPrompt += `7. 支持的富文本格式：用 *星号* 包裹的词会被高亮（例如 *关键一击*），对话请放在中文书名号「」中（例如 「莉亚：别再乱冲啦！」），需要换行时直接插入换行符；不要输出任何 HTML 标签。\n`;
 
       combatDataPrompt += `\n[输出格式]\n`;
       combatDataPrompt += `请只输出一个 XML 片段，形如：\n`;
