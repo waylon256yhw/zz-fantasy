@@ -211,6 +211,12 @@ export const ALL_ITEMS = {
   OVERLORD_PROOF: { id: 'overlord_proof', name: '霸主之证', description: '集齐万宝阁所有传奇宝物后颁发的荣耀勋章。持有者被视为艾瑟瑞亚的传奇霸主。', type: 'Key' as const, rarity: 'Legendary' as const, icon: IMAGES.bg.valley },
 } as const;
 
+// 万宝阁常驻补给（战斗用药水）
+export const SHOP_POTION_ITEMS: Array<{ key: keyof typeof ALL_ITEMS; price: number }> = [
+  { key: 'POTION', price: 200 },
+  { key: 'ARCANE_TONIC', price: 200 },
+];
+
 // 酒馆餐厅菜单（售卖所有食物与饮品类消耗品）
 export const RESTAURANT_ITEMS: Array<{ key: keyof typeof ALL_ITEMS; price: number }> = [
   { key: 'BREAD', price: 30 },
@@ -254,8 +260,8 @@ export function getItemInstance(itemKey: keyof typeof ALL_ITEMS, quantity?: numb
 // 职业初始物品配置 (物品key + 数量)
 const STARTING_ITEMS_CONFIG: Record<ClassType, Array<{ key: keyof typeof ALL_ITEMS; qty?: number }>> = {
   [ClassType.ALCHEMIST]: [
-    { key: 'POTION', qty: 3 },
-    { key: 'ARCANE_TONIC', qty: 2 },
+    { key: 'POTION', qty: 4 },
+    { key: 'ARCANE_TONIC', qty: 3 },
     { key: 'HERB_BUNDLE', qty: 3 },
     { key: 'FOREST_BERRIES', qty: 1 },
     { key: 'FRUIT_TART', qty: 1 },
@@ -265,6 +271,8 @@ const STARTING_ITEMS_CONFIG: Record<ClassType, Array<{ key: keyof typeof ALL_ITE
     { key: 'SWORD' },
     { key: 'SHIELD' },
     { key: 'SWIFT_BOOTS' },
+    { key: 'POTION', qty: 3 },
+    { key: 'ARCANE_TONIC', qty: 1 },
     { key: 'STAMINA_STEW', qty: 2 },
     { key: 'BREAD', qty: 2 },
     { key: 'ROAST_MEAT', qty: 1 },
@@ -273,6 +281,8 @@ const STARTING_ITEMS_CONFIG: Record<ClassType, Array<{ key: keyof typeof ALL_ITE
   [ClassType.SKY_PIRATE]: [
     { key: 'HUNTER_CROSSBOW' },
     { key: 'REINFORCED_QUIVER' },
+    { key: 'POTION', qty: 1 },
+    { key: 'ARCANE_TONIC', qty: 2 },
     { key: 'APPLE_SNACK', qty: 2 },
     { key: 'GRILLED_FISH', qty: 1 },
     { key: 'SUSHI_PLATTER', qty: 1 },
@@ -283,11 +293,12 @@ const STARTING_ITEMS_CONFIG: Record<ClassType, Array<{ key: keyof typeof ALL_ITE
     { key: 'WAND' },
     { key: 'BOOK' },
     { key: 'ANCIENT_SCROLL' },
+    { key: 'POTION', qty: 1 },
+    { key: 'ARCANE_TONIC', qty: 2 },
     { key: 'RUNE_FRAGMENT', qty: 2 },
     { key: 'STAR_CRYSTAL' },
     { key: 'RAMEN_BOWL', qty: 1 },
     { key: 'HONEY_PANCAKES', qty: 1 },
-    { key: 'ARCANE_TONIC', qty: 1 }
   ],
 };
 

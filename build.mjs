@@ -76,6 +76,15 @@ async function build() {
     // 创建软链接
     fs.symlinkSync(targetPath, symlinkPath);
 
+    // 🆕 自动复制到开发服务器目录（用于预览版）
+    const webDevFile = '/root/web-dev/zz-fantasy.html';
+    try {
+      fs.copyFileSync('dist/index.html', webDevFile);
+      console.log(`📋 已同步到：${webDevFile}`);
+    } catch (copyError) {
+      console.warn(`⚠️  无法复制到 ${webDevFile}:`, copyError.message);
+    }
+
     console.log('✅ 打包完成！输出文件：dist/index.html');
     console.log(`📦 Bundle 大小：${(bundledJS.length / 1024).toFixed(2)} KB`);
     console.log(`🔗 软链接已创建：public/index.html -> ${targetPath}`);

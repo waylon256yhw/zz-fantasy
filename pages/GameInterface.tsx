@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { TypewriterText } from '../components/RPGComponents';
 import { Character, LogEntry, Item, ClassType } from '../types';
-import { STARTING_LOGS, CLASS_LABELS, IMAGES, getAvailableQuests, getActiveQuests, getCompletedQuests, ALL_ITEMS, LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, MAP_GRAPH, MAP_SHORT_NAMES, RESTAURANT_ITEMS, getItemInstance, clampGold, MAX_STACK } from '../constants';
+import { STARTING_LOGS, CLASS_LABELS, IMAGES, getAvailableQuests, getActiveQuests, getCompletedQuests, ALL_ITEMS, LEGENDARY_SHOP_ITEMS, LEGENDARY_SHOP_PRICE, MAP_GRAPH, MAP_SHORT_NAMES, RESTAURANT_ITEMS, SHOP_POTION_ITEMS, getItemInstance, clampGold, MAX_STACK } from '../constants';
 import { useGame, ShopState } from '../src/contexts/GameContext';
 import { DZMMService } from '../src/services/dzmmService';
 import { buildSystemPrompt, buildPlayerContext, buildOpeningGreeting } from '../src/utils/promptBuilder';
@@ -12,6 +12,7 @@ import { parseRichText } from '../src/utils/richTextParser';
 import { detectQuestCompletion } from '../src/utils/questDetector';
 import { addExperience, EXP_SOURCES, getLevelUpMessage, getExpProgress } from '../src/utils/levelSystem';
 import { updateHpMpOnLevelUp, applyAdventureFatigue } from '../src/utils/hpMpSystem';
+import { calculateAttackPower } from '../src/utils/combatSystem';
 import {
   Backpack,
   User,
@@ -34,12 +35,15 @@ import {
   Crown,
   Map,
   MapPin,
-  Utensils
+  Utensils,
+  Swords
 } from 'lucide-react';
+import { CombatSheet } from '../components/CombatSheet';
+import { CombatResultSheet } from '../components/CombatResultSheet';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 
-type SheetType = 'INVENTORY' | 'STATUS' | 'GUILD' | 'SHOP' | 'HONOR' | 'MAP' | 'RESTAURANT' | null;
-const CHEAT_MODE = false; // 开发专用金手指，发布前请置为 false
+type SheetType = 'INVENTORY' | 'STATUS' | 'GUILD' | 'SHOP' | 'HONOR' | 'MAP' | 'RESTAURANT' | 'COMBAT' | null;
+const CHEAT_MODE = true; // 开发专用金手指，发布前请置为 false
 
 const getInitialLocationForClass = (classType: ClassType): string => {
   switch (classType) {
@@ -55,7 +59,7 @@ const getInitialLocationForClass = (classType: ClassType): string => {
 };
 
 const GameInterface: React.FC = () => {
-  const { character, logs, setLogs, location, isDzmmReady, currentOpening, addLog, setCharacter, selectedModel, acceptQuest, completeQuest, useItem, shopState, refreshShop, purchaseShopItem, claimOverlordProof, setLocation, resetGameState, autoSave, hasUnsavedChanges } = useGame();
+  const { character, logs, setLogs, location, isDzmmReady, currentOpening, addLog, setCharacter, selectedModel, acceptQuest, completeQuest, useItem, shopState, refreshShop, purchaseShopItem, claimOverlordProof, setLocation, resetGameState, autoSave, hasUnsavedChanges, combatState, startCombat, executeCombatAction, handleRetreat, processCombatTurn, continueEncounter, returnToAdventure, devForceTreasureMonster, setDevForceTreasureMonster } = useGame();
   const navigate = useNavigate();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [input, setInput] = useState('');
@@ -65,6 +69,7 @@ const GameInterface: React.FC = () => {
   const [editText, setEditText] = useState('');
   const [rerollingIndex, setRerollingIndex] = useState<number | null>(null);
   const [pendingLocation, setPendingLocation] = useState<string | null>(null);
+  const [pendingItemUses, setPendingItemUses] = useState<Array<{ itemId: string; itemName: string }>>([]);
   const logsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,9 +117,36 @@ const GameInterface: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  const buildItemUseSummary = (uses: Array<{ itemId: string; itemName: string }>): string => {
+    const counts: Record<string, number> = {};
+    uses.forEach(u => {
+      counts[u.itemName] = (counts[u.itemName] || 0) + 1;
+    });
+    const parts = Object.entries(counts).map(([name, count]) => `${count}个${name}`);
+    return parts.length > 0 ? `我使用了${parts.join('，')}` : '';
+  };
+
   // Handle player action with DZMM API
-  const handleAction = async (action: string) => {
-    if (!action.trim() || !character || isGenerating) return;
+  const handleAction = async (rawAction: string) => {
+    if ((!rawAction.trim() && pendingItemUses.length === 0) || !character || isGenerating) return;
+
+    let finalAction = rawAction.trim();
+
+    // 应用本轮静默记录的道具使用（如食物），并构建简洁提示语
+    if (pendingItemUses.length > 0) {
+      const summary = buildItemUseSummary(pendingItemUses);
+
+      // 实际消耗道具并结算AP
+      pendingItemUses.forEach(use => {
+        useItem(use.itemId);
+      });
+
+      setPendingItemUses([]);
+
+      finalAction = finalAction ? `${finalAction}\n${summary}` : summary;
+    }
+
+    if (!finalAction) return;
 
     setIsGenerating(true);
     setInput('');
@@ -123,7 +155,7 @@ const GameInterface: React.FC = () => {
     const playerLog: LogEntry = {
       id: `player_${Date.now()}`,
       speaker: character.name,
-      text: action,
+      text: finalAction,
       type: 'dialogue'
     };
 
@@ -167,7 +199,7 @@ const GameInterface: React.FC = () => {
       // Add current action with <last_input> emphasis block + D0 玩家上下文
       const lastInputBlock = `<last_input>
 玩家当前指令如下，请以此为最高优先级进行叙事响应：
-${action}
+${finalAction}
 </last_input>`;
 
       const playerContextBlock = buildPlayerContext(
@@ -323,7 +355,7 @@ ${action}
             // Apply pending location change (if user actually sent the travel message)
             if (pendingLocation) {
               // Only apply if the actual sent action text包含目标地点名称
-              if (action.includes(pendingLocation)) {
+              if (rawAction.includes(pendingLocation)) {
                 setLocation(pendingLocation);
                 autoSave(); // Auto-save after location change
               }
@@ -474,6 +506,71 @@ ${action}
     autoSave(); // Auto-save after restaurant purchase
   };
 
+  const handleShopPotionPurchase = (key: keyof typeof ALL_ITEMS, price: number) => {
+    if (!character) return;
+
+    const template = ALL_ITEMS[key];
+
+    if (template.type !== 'Consumable') {
+      return;
+    }
+
+    // 查找已存在的同名消耗品堆叠
+    const existingStack = character.inventory.find(
+      item => item.type === 'Consumable' && item.name === template.name
+    );
+
+    if (existingStack) {
+      const currentQty = existingStack.quantity ?? 1;
+      if (currentQty >= MAX_STACK) {
+        alert('该药水单格最多堆叠 99 个，请先使用一些再购买');
+        return;
+      }
+    }
+
+    if (character.gold < price) {
+      alert('金币不足，无法购买这瓶药水');
+      return;
+    }
+
+    setCharacter(prev => {
+      if (!prev) return prev;
+
+      const existingIndex = prev.inventory.findIndex(
+        item => item.type === 'Consumable' && item.name === template.name
+      );
+
+      if (existingIndex !== -1) {
+        const inventory = [...prev.inventory];
+        const existing = inventory[existingIndex];
+        const currentQty = existing.quantity ?? 1;
+        const newQty = Math.min(currentQty + 1, MAX_STACK);
+        inventory[existingIndex] = { ...existing, quantity: newQty };
+
+        return {
+          ...prev,
+          gold: clampGold(prev.gold - price),
+          inventory,
+        };
+      }
+
+      const itemInstance = getItemInstance(key);
+      return {
+        ...prev,
+        gold: clampGold(prev.gold - price),
+        inventory: [...prev.inventory, itemInstance],
+      };
+    });
+
+    addLog({
+      speaker: '系统',
+      text: `你在万宝阁购入了「${template.name}」，花费了 ${price} G。`,
+      type: 'system',
+    });
+
+    autoSave();
+  };
+
   if (!character) return null;
 
   return (
@@ -564,24 +661,38 @@ ${action}
               {/* Compact single-row Nav Container */}
               <div className="flex flex-nowrap gap-1 md:gap-2 flex-1 items-center overflow-x-auto no-scrollbar pb-1 -mb-1 pl-2 pr-4 md:pl-2 md:pr-3">
                   <NavButton icon={<Backpack size={16} />} label="背包" onClick={() => setActiveSheet('INVENTORY')} />
-                  <NavButton icon={<User size={16} />} label="状态" onClick={() => setActiveSheet('STATUS')} />
+                  <NavButton icon={<Swords size={16} />} label="战斗" onClick={() => setActiveSheet('COMBAT')} />
                   <NavButton icon={<ShieldCheck size={16} />} label="公会" onClick={() => setActiveSheet('GUILD')} />
                   <NavButton icon={<ShoppingBag size={16} />} label="商店" onClick={() => { refreshShop(); setActiveSheet('SHOP'); }} />
                   <NavButton icon={<Utensils size={16} />} label="餐厅" onClick={() => setActiveSheet('RESTAURANT')} />
                   <NavButton icon={<Crown size={16} />} label="荣誉墙" onClick={() => setActiveSheet('HONOR')} />
                   <NavButton icon={<Map size={16} />} label="地图" onClick={() => setActiveSheet('MAP')} />
                   {CHEAT_MODE && (
-                    <button
-                      onClick={() => {
-                        if (!character) return;
-                        setCharacter(prev => prev ? { ...prev, gold: clampGold(prev.gold + 1000) } : prev);
-                        addLog({ speaker: '系统', text: '[DEV] 金币 +1000 (测试专用)', type: 'system' });
-                      }}
-                      className="bg-red-50 text-red-600 px-3 py-2 rounded-lg border border-red-200 shadow-sm text-[11px] font-bold hover:bg-red-100 active:scale-95 shrink-0 flex items-center gap-1"
-                      title="DEV ONLY: 发布前请关闭"
-                    >
-                      <Coins size={14} /> DEV+1000G
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          if (!character) return;
+                          setCharacter(prev => prev ? { ...prev, gold: clampGold(prev.gold + 1000) } : prev);
+                          addLog({ speaker: '系统', text: '[DEV] 金币 +1000 (测试专用)', type: 'system' });
+                        }}
+                        className="bg-red-50 text-red-600 px-3 py-2 rounded-lg border border-red-200 shadow-sm text-[11px] font-bold hover:bg-red-100 active:scale-95 shrink-0 flex items-center gap-1"
+                        title="DEV ONLY: 发布前请关闭"
+                      >
+                        <Coins size={14} /> DEV+1000G
+                      </button>
+                      <button
+                        onClick={() => setDevForceTreasureMonster(!devForceTreasureMonster)}
+                        className={`px-3 py-2 rounded-lg border shadow-sm text-[11px] font-bold active:scale-95 shrink-0 flex items-center gap-1 ${
+                          devForceTreasureMonster
+                            ? 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200'
+                            : 'bg-white text-[#5D4037] border-[#E6D7C3] hover:bg-[#FFF3E0]'
+                        }`}
+                        title="DEV ONLY: 遭遇战必定遇到珍宝怪"
+                      >
+                        <Sparkles size={14} />
+                        {devForceTreasureMonster ? '稀有怪：开' : '稀有怪：关'}
+                      </button>
+                    </>
                   )}
                   <div className="w-px h-6 md:h-8 bg-[#E6D7C3] mx-0.5 md:mx-1 shrink-0" />
                   <NavButton icon={<Menu size={16} />} label="系统" onClick={handleSystemClick} />
@@ -827,14 +938,63 @@ ${action}
                </button>
 
                {activeSheet === 'INVENTORY' && <InventorySheet items={character.inventory} onUseItem={(itemId, itemName) => {
-                 // Use item (reduce quantity or remove)
-                 useItem(itemId);
-                 // Close inventory sheet
+                 // 禁止在背包中直接使用战斗药水（仅战斗内通过“喝药”使用）
+                 const item = character.inventory.find(i => i.id === itemId);
+                 if (item && item.type === 'Consumable' && (item.name === '治愈药水' || item.name === '秘药：灵能酿')) {
+                   alert('战斗用药水只能在战斗中通过“喝药”按钮使用，日常请使用食物恢复体力。');
+                   return;
+                 }
+
+                 if (!item) return;
+
+                 // 静默记录本轮计划使用的食物，不立刻结算
+                 if (item.type === 'Consumable') {
+                   const alreadyPlanned = pendingItemUses.filter(u => u.itemId === itemId).length;
+                   const maxQty = item.quantity ?? 1;
+                   if (alreadyPlanned >= maxQty) {
+                     alert('该道具本轮已全部加入使用列表');
+                     return;
+                   }
+                 }
+
+                 setPendingItemUses(prev => [...prev, { itemId, itemName }]);
                  setActiveSheet(null);
-                 // Fill input with use item message
-                 setInput(`我使用了${itemName}`);
                }} />}
                {activeSheet === 'STATUS' && <StatusSheet character={character} />}
+               {activeSheet === 'COMBAT' && !combatState.showSettlement && (
+                 <CombatSheet
+                   character={character}
+                   combatState={combatState}
+                   onAction={(action) => {
+                     if (action === 'encounter') {
+                       startCombat();
+                     } else if (
+                       action === 'attack' ||
+                       action === 'defend' ||
+                       action === 'skip' ||
+                       action === 'useHealPotion' ||
+                       action === 'useArcaneTonic'
+                     ) {
+                       executeCombatAction(action);
+                     } else if (action === 'retreat') {
+                       handleRetreat();
+                     }
+                   }}
+                 />
+               )}
+               {activeSheet === 'COMBAT' && combatState.showSettlement && combatState.sessionResults.length > 0 && (
+                 <CombatResultSheet
+                   results={combatState.sessionResults}
+                   character={character}
+                   onContinueCombat={() => {
+                     continueEncounter();
+                   }}
+                   onReturnToAdventure={() => {
+                     returnToAdventure();
+                     setActiveSheet(null); // Close combat sheet
+                   }}
+                 />
+               )}
                {activeSheet === 'GUILD' && <GuildSheet character={character} onAcceptQuest={(questId, questTitle) => {
                  // Accept quest and close sheet
                  acceptQuest(questId);
@@ -853,7 +1013,7 @@ ${action}
                  } else {
                    alert('金币不足或没有可售物品');
                  }
-               }} />}
+               }} onPurchasePotion={handleShopPotionPurchase} />}
               {activeSheet === 'RESTAURANT' && (
                 <RestaurantSheet
                   gold={character.gold}
@@ -944,6 +1104,28 @@ const CharacterCardView = ({ character, className = "" }: { character: Character
                     />
                  </div>
                  <span className="w-12 text-right font-mono">{character.currentMp}</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-bold text-white/90">
+                 <span className="w-6 text-shadow-sm">AP</span>
+                 <div className="flex-1 h-3 bg-black/30 rounded-full overflow-hidden border border-white/10 backdrop-blur-sm">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.round((character.currentAP / character.maxAP) * 100)}%` }}
+                      className="h-full bg-[#FFB74D] rounded-full shadow-[0_0_10px_rgba(255,183,77,0.5)]"
+                    />
+                 </div>
+                 <span className="w-12 text-right font-mono">{character.currentAP}</span>
+              </div>
+           </div>
+
+           {/* Stats Section - Pure Values */}
+           <div className="mt-4 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-center gap-2">
+                 <div className="flex items-center gap-2 bg-gradient-to-r from-red-500/20 to-orange-500/20 backdrop-blur-md px-4 py-2 rounded-full border border-red-400/30 shadow-lg">
+                    <span className="text-red-300 text-sm">⚔️</span>
+                    <span className="text-[10px] font-bold text-white/70 uppercase tracking-wider">攻击力</span>
+                    <span className="text-xl font-black text-white drop-shadow-md">{calculateAttackPower(character)}</span>
+                 </div>
               </div>
            </div>
         </div>
@@ -1393,7 +1575,7 @@ const GuildSheet = ({ character, onAcceptQuest }: { character: Character; onAcce
   );
 };
 
-const ShopSheet = ({ shopState, gold, onRefresh, onPurchase }: { shopState: ShopState; gold: number; onRefresh: () => void; onPurchase: () => void }) => {
+const ShopSheet = ({ shopState, gold, onRefresh, onPurchase, onPurchasePotion }: { shopState: ShopState; gold: number; onRefresh: () => void; onPurchase: () => void; onPurchasePotion: (key: keyof typeof ALL_ITEMS, price: number) => void }) => {
   const currentItem = shopState.currentItemKey ? ALL_ITEMS[shopState.currentItemKey as keyof typeof ALL_ITEMS] : null;
   const soldOut = shopState.purchasedKeys?.length >= LEGENDARY_SHOP_ITEMS.length;
 
@@ -1410,6 +1592,64 @@ const ShopSheet = ({ shopState, gold, onRefresh, onPurchase }: { shopState: Shop
       </div>
 
       <div className="flex-1 p-6 space-y-4">
+        {/* Battle Potions Section */}
+        <div className="bg-white rounded-2xl border-2 border-[#F0EAE0] shadow-sm p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-lg font-black text-[#5D4037]">战斗补给</h3>
+              <p className="text-xs text-[#8B7355] font-bold">治愈药水 / 秘药：灵能酿</p>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] font-bold text-[#8B7355] uppercase tracking-wide">Gold</div>
+              <div className="text-lg font-black text-[#FFD166] flex items-baseline gap-1">
+                <span className="font-mono">{gold}</span>
+                <span className="text-[10px] text-[#8B7355]">G</span>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {SHOP_POTION_ITEMS.map(({ key, price }) => {
+              const item = ALL_ITEMS[key];
+              const affordable = gold >= price;
+              return (
+                <div
+                  key={key}
+                  className="flex items-center justify-between bg-[#FFFBF0] rounded-xl border border-[#F0EAE0] px-3 py-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-[#FFF7E0] flex items-center justify-center">
+                      <img src={item.icon} alt={item.name} className="w-8 h-8 object-contain" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-[#5D4037]">{item.name}</div>
+                      <div className="text-[10px] text-[#8B7355] line-clamp-2">
+                        {item.description}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="px-2 py-0.5 bg-[#FFD166]/30 text-[#C27B28] rounded-full text-[10px] font-bold">
+                      {price} G
+                    </span>
+                    <button
+                      onClick={() => onPurchasePotion(key, price)}
+                      disabled={!affordable}
+                      className={`px-3 py-1 rounded-lg text-[10px] font-bold shadow-sm active:scale-95 transition-all ${
+                        affordable
+                          ? 'bg-[#5D4037] text-white hover:bg-[#FF9FAA]'
+                          : 'bg-[#E6D7C3] text-[#8B7355] cursor-not-allowed opacity-70'
+                      }`}
+                    >
+                      {affordable ? '购买药水' : '金币不足'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Legendary Relics Section */}
         {!soldOut && currentItem && (
           <div className="bg-white rounded-2xl border-2 border-[#F0EAE0] shadow-sm p-4 flex flex-col md:flex-row gap-4 items-center">
             <div className="relative w-24 h-24 bg-gradient-to-br from-[#FFEBB8] to-[#FFE2E2] rounded-2xl flex items-center justify-center">

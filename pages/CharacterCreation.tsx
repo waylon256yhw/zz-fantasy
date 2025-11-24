@@ -7,6 +7,7 @@ import { INITIAL_STATS, CLASS_DESCRIPTIONS, CLASS_LABELS, IMAGES, getCharacterIm
 import { ChevronLeft, Sparkles, CheckCircle, Wand2, Palette, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import { initializeHpMp } from '../src/utils/hpMpSystem';
+import { calculateMaxAP } from '../src/utils/combatSystem';
 
 interface CharacterCreationProps {
   onComplete: (char: Character) => void;
@@ -30,6 +31,9 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
     // Initialize HP/MP based on starting level
     const hpMpValues = initializeHpMp(1);
 
+    // Initialize AP (Action Points) for combat system
+    const maxAP = calculateMaxAP(1);
+
     const newChar: Character = {
       name,
       classType: selectedClass,
@@ -44,6 +48,9 @@ const CharacterCreation: React.FC<CharacterCreationProps> = ({ onComplete }) => 
       activeQuests: [],
       completedQuests: [],
       ...hpMpValues, // Add HP/MP
+      currentAP: maxAP,
+      maxAP: maxAP,
+      statsBonus: { STR: 0, DEX: 0, INT: 0, CHA: 0, LUCK: 0 }, // Reserved for equipment bonuses
     };
     onComplete(newChar);
     navigate('/game');
