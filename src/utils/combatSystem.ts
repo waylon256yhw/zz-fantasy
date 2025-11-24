@@ -81,21 +81,35 @@ export function recoverAP(currentAP: number, maxAP: number): number {
 
 /**
  * Recover AP from consuming food
- * AP recovery based on food price tier:
- * - Low tier (25-35G): 15 AP
- * - Mid tier (40-60G): 25 AP
- * - High tier (65-70G): 40 AP
+ * 新规则：百分比 + 固定值，根据价格段分档：
+ * - 低档（<=35G）： 5% maxAP + 5
+ * - 中低档（<=50G）：10% maxAP + 8
+ * - 中高档（<=65G）：15% maxAP + 10
+ * - 高档（>65G）：20% maxAP + 12
+ * 最终值会向下取整，并 clamp 在 [1, maxAP-currentAP] 之内
  */
 export function recoverAPFromFood(currentAP: number, maxAP: number, foodPrice: number): number {
-  let apRecovery = 0;
+  let percent = 0.05;
+  let flat = 5;
 
   if (foodPrice <= 35) {
-    apRecovery = 15; // Low tier food
-  } else if (foodPrice <= 60) {
-    apRecovery = 25; // Mid tier food
+    percent = 0.05;
+    flat = 5;
+  } else if (foodPrice <= 50) {
+    percent = 0.1;
+    flat = 8;
+  } else if (foodPrice <= 65) {
+    percent = 0.15;
+    flat = 10;
   } else {
-    apRecovery = 40; // High tier food
+    percent = 0.2;
+    flat = 12;
   }
+
+  const fromPercent = Math.floor(maxAP * percent);
+  let apRecovery = fromPercent + flat;
+
+  if (apRecovery < 1) apRecovery = 1;
 
   const newAP = currentAP + apRecovery;
   return Math.min(newAP, maxAP);
