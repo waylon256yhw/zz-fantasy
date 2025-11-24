@@ -55,7 +55,7 @@ const getInitialLocationForClass = (classType: ClassType): string => {
 };
 
 const GameInterface: React.FC = () => {
-  const { character, logs, setLogs, location, isDzmmReady, currentOpening, addLog, setCharacter, selectedModel, acceptQuest, completeQuest, useItem, shopState, refreshShop, purchaseShopItem, claimOverlordProof, setLocation } = useGame();
+  const { character, logs, setLogs, location, isDzmmReady, currentOpening, addLog, setCharacter, selectedModel, acceptQuest, completeQuest, useItem, shopState, refreshShop, purchaseShopItem, claimOverlordProof, setLocation, resetGameState, autoSave, hasUnsavedChanges } = useGame();
   const navigate = useNavigate();
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
   const [input, setInput] = useState('');
@@ -98,6 +98,19 @@ const GameInterface: React.FC = () => {
       container.scrollTop = container.scrollHeight;
     }
   }, [logs, activeSheet]);
+
+  // Browser close protection: warn if there are unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges()) {
+        e.preventDefault();
+        e.returnValue = '你有未保存的游戏进度，确定要离开吗？';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   // Handle player action with DZMM API
   const handleAction = async (action: string) => {
@@ -300,6 +313,8 @@ ${action}
                 if (expResult.levelsGained > 0) {
                   console.log(`[Level Up] ${getLevelUpMessage(character.name, expResult.newLevel, expResult.levelsGained)}`);
                 }
+
+                autoSave(); // Auto-save after quest completion
               }
             }
 
@@ -310,6 +325,7 @@ ${action}
               // Only apply if the actual sent action text包含目标地点名称
               if (action.includes(pendingLocation)) {
                 setLocation(pendingLocation);
+                autoSave(); // Auto-save after location change
               }
               setPendingLocation(null);
             }
@@ -454,6 +470,8 @@ ${action}
       text: `你在酒馆点了「${template.name}」，花费了 ${price} G。`,
       type: 'system',
     });
+
+    autoSave(); // Auto-save after restaurant purchase
   };
 
   if (!character) return null;
@@ -569,7 +587,16 @@ ${action}
                   <NavButton icon={<Menu size={16} />} label="系统" onClick={handleSystemClick} />
 
                   <button
-                    onClick={() => navigate('/')}
+                    onClick={() => {
+                      // Check for unsaved changes before exiting
+                      if (hasUnsavedChanges()) {
+                        if (confirm('你有未保存的游戏进度，确定要退出吗？进度将会丢失。')) {
+                          navigate('/');
+                        }
+                      } else {
+                        navigate('/');
+                      }
+                    }}
                     className="group bg-white/80 hover:bg-red-50 text-[#5D4037] hover:text-red-500 px-1.5 md:px-2.5 py-1.5 md:py-2 rounded-lg md:rounded-xl border border-white hover:border-red-200 shadow-sm transition-all active:scale-95 flex items-center gap-1 shrink-0 ml-0.5 md:ml-1"
                     title="返回标题"
                   >
@@ -811,6 +838,7 @@ ${action}
                {activeSheet === 'GUILD' && <GuildSheet character={character} onAcceptQuest={(questId, questTitle) => {
                  // Accept quest and close sheet
                  acceptQuest(questId);
+                 autoSave(); // Auto-save after accepting quest
                  setActiveSheet(null);
                  // Auto-send user message
                  setInput(`我接受了任务：${questTitle}`);
@@ -820,7 +848,9 @@ ${action}
                }} />}
                {activeSheet === 'SHOP' && <ShopSheet shopState={shopState} gold={character.gold} onRefresh={() => refreshShop(true)} onPurchase={() => {
                  const success = purchaseShopItem();
-                 if (!success) {
+                 if (success) {
+                   autoSave(); // Auto-save after successful purchase
+                 } else {
                    alert('金币不足或没有可售物品');
                  }
                }} />}

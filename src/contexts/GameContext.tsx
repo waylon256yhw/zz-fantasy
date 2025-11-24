@@ -23,6 +23,7 @@ interface GameContextType {
   currentOpening: string; // For multi-opening system
   selectedModel: string; // DZMM AI model selection
   shopState: ShopState;
+  lastSaveTimestamp: number; // Track last save time
 
   // Setters
   setCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
@@ -37,6 +38,8 @@ interface GameContextType {
   // Helper functions
   addLog: (entry: Omit<LogEntry, 'id'>) => void;
   clearLogs: () => void;
+  resetGameState: () => void; // Clear all game state for new game
+  hasUnsavedChanges: () => boolean; // Check if there are unsaved changes
 
   // Inventory management
   addItem: (item: Item) => void;
@@ -51,6 +54,7 @@ interface GameContextType {
   saveGame: (slotNumber: number) => Promise<void>;
   loadGame: (slotNumber: number) => Promise<boolean>;
   getSavePreview: (slotNumber: number) => Promise<SavePreview | null>;
+  autoSave: () => Promise<void>; // Auto-save to slot 0
 }
 
 export interface SavePreview {
@@ -98,6 +102,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [isDzmmReady, setIsDzmmReady] = useState(false);
   const [currentOpening, setCurrentOpening] = useState<string>('main');
   const [selectedModel, setSelectedModel] = useState<string>('nalang-max-0826'); // Default to Max model
+  const [lastSaveTimestamp, setLastSaveTimestamp] = useState<number>(0);
+  const [lastSaveLogsCount, setLastSaveLogsCount] = useState<number>(0);
   const [shopState, setShopState] = useState<ShopState>(() => ({
     currentItemKey: null,
     nextRefreshAt: Date.now(),
@@ -187,6 +193,34 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Clear all logs
   const clearLogs = () => {
     setLogs([]);
+  };
+
+  // Reset all game state (for starting new game)
+  const resetGameState = () => {
+    setCharacter(null);
+    setLogs([]);
+    setLocation('王都阿斯拉 - 中央广场');
+    setCurrentOpening('main');
+    setLastSaveTimestamp(0);
+    setLastSaveLogsCount(0);
+    setShopState({
+      currentItemKey: null,
+      nextRefreshAt: Date.now(),
+      purchasedKeys: [],
+      achievementClaimed: false,
+    });
+    console.log('[GameContext] Game state reset');
+  };
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = (): boolean => {
+    if (!character) return false;
+
+    // If never saved, and has character, then unsaved
+    if (lastSaveTimestamp === 0 && character) return true;
+
+    // If new logs were added after last save
+    return logs.length > lastSaveLogsCount;
   };
 
   // Add item to inventory
@@ -314,12 +348,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       throw new Error('No character to save');
     }
 
+    const timestamp = Date.now();
     const saveData: SaveData = {
       version: SAVE_VERSION,
       character,
       logs,
       location,
-      timestamp: Date.now(),
+      timestamp,
       opening: currentOpening,
       shopState,
     };
@@ -327,7 +362,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const key = `${SAVE_KEY_PREFIX}${slotNumber}`;
     await DZMMService.kvPut(key, saveData);
 
+    setLastSaveTimestamp(timestamp);
+    setLastSaveLogsCount(logs.length);
     console.log(`[GameContext] Game saved to slot ${slotNumber}`);
+  };
+
+  // Auto-save to slot 0 (read-only auto-save slot)
+  const autoSave = async (): Promise<void> => {
+    if (!character) return;
+
+    try {
+      await saveGame(0);
+      console.log('[GameContext] Auto-saved to slot 0');
+    } catch (error) {
+      console.error('[GameContext] Auto-save failed:', error);
+    }
   };
 
   // Load game from DZMM KV storage
@@ -375,6 +424,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setLogs(saveData.logs);
     setLocation(saveData.location);
     setCurrentOpening(saveData.opening || 'main');
+
+    // Restore save tracking (treat as just saved, so no unsaved changes)
+    setLastSaveTimestamp(saveData.timestamp);
+    setLastSaveLogsCount(saveData.logs.length);
 
     // Restore shop state with defaults
     setShopState(prev => ({
@@ -424,6 +477,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     currentOpening,
     selectedModel,
     shopState,
+    lastSaveTimestamp,
     setCharacter,
     setLogs,
     setLocation,
@@ -434,6 +488,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     claimOverlordProof,
     addLog,
     clearLogs,
+    resetGameState,
+    hasUnsavedChanges,
     addItem,
     removeItem,
     useItem,
@@ -442,6 +498,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     saveGame,
     loadGame,
     getSavePreview,
+    autoSave,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

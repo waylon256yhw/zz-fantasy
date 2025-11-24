@@ -48,7 +48,7 @@ const MODEL_OPTIONS = [
 
 const WelcomeScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { selectedModel, setSelectedModel } = useGame();
+  const { selectedModel, setSelectedModel, resetGameState } = useGame();
 
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-[#E6F3F5]">
@@ -137,7 +137,14 @@ const WelcomeScreen: React.FC = () => {
             >
               <div className="bg-white/60 p-6 rounded-3xl border border-white shadow-xl backdrop-blur-md hover:shadow-[0_0_40px_rgba(255,159,170,0.3)] transition-all duration-500 hover:bg-white/70">
                 <div className="space-y-4">
-                  <RPGButton onClick={() => navigate('/create')} icon={<Play size={20} fill="currentColor" />} className="w-full shadow-lg">
+                  <RPGButton
+                    onClick={() => {
+                      resetGameState();
+                      navigate('/create');
+                    }}
+                    icon={<Play size={20} fill="currentColor" />}
+                    className="w-full shadow-lg"
+                  >
                     开始新冒险
                   </RPGButton>
                   <RPGButton variant="secondary" onClick={() => navigate('/save')} icon={<BookOpen size={20} />} className="w-full">

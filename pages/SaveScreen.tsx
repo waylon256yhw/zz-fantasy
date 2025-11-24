@@ -32,7 +32,7 @@ interface Toast {
   type: 'success' | 'error' | 'info';
 }
 
-const SAVE_SLOTS = [1, 2, 3];
+const SAVE_SLOTS = [0, 1, 2, 3]; // Slot 0 is auto-save (read-only)
 
 const SaveScreen: React.FC = () => {
   const { character, saveGame, loadGame, getSavePreview } = useGame();
@@ -119,6 +119,12 @@ const SaveScreen: React.FC = () => {
   const handleSave = async () => {
     if (!selectedSlot || !character) return;
 
+    // Prevent overwriting auto-save slot
+    if (selectedSlot === 0) {
+      showToast('自动存档为只读，请选择其他槽位', 'error');
+      return;
+    }
+
     try {
       await saveGame(selectedSlot);
       showToast(`进度已保存至 档案 ${selectedSlot}`, 'success');
@@ -133,6 +139,12 @@ const SaveScreen: React.FC = () => {
 
   const handleDelete = async () => {
     if (!selectedSlot) return;
+
+    // Prevent deleting auto-save slot
+    if (selectedSlot === 0) {
+      showToast('自动存档不能删除', 'error');
+      return;
+    }
 
     if (!confirm(`确定删除档案 ${selectedSlot}？`)) return;
 
@@ -235,19 +247,33 @@ const SaveScreen: React.FC = () => {
            {/* Slot List */}
            <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar -mx-6 px-6 md:px-0 md:mx-0 pb-20 md:pb-0">
               <div className="space-y-4 pb-4">
-              {saves.map((save) => (
+              {saves.map((save) => {
+                const isAutoSave = save.id === 0;
+                return (
                   <motion.button
                     key={save.id}
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedSlot(save.id)}
                     className={`w-full p-3 rounded-xl border-2 transition-all text-left relative group ${
-                      selectedSlot === save.id 
-                        ? 'border-[#FF9FAA] bg-[#FFF0F0] ring-2 ring-[#FF9FAA]/30 shadow-md' 
-                        : 'border-[#E6D7C3] bg-white hover:border-[#D4C5B0] hover:shadow-sm'
+                      isAutoSave
+                        ? selectedSlot === save.id
+                          ? 'border-[#FFD166] bg-[#FFFBF0] ring-2 ring-[#FFD166]/30 shadow-md'
+                          : 'border-[#FFD166]/50 bg-[#FFFEF5] hover:border-[#FFD166] hover:shadow-sm'
+                        : selectedSlot === save.id
+                          ? 'border-[#FF9FAA] bg-[#FFF0F0] ring-2 ring-[#FF9FAA]/30 shadow-md'
+                          : 'border-[#E6D7C3] bg-white hover:border-[#D4C5B0] hover:shadow-sm'
                     }`}
                   >
-                    <div className="absolute top-2 left-3 text-[10px] font-bold text-[#D4C5B0] tracking-widest">NO.0{save.id}</div>
+                    <div className="absolute top-2 left-3 flex items-center gap-2">
+                      {isAutoSave ? (
+                        <span className="text-[10px] font-bold text-[#C27B28] tracking-wide px-2 py-0.5 bg-[#FFD166]/20 rounded-full border border-[#FFD166]/30">
+                          🔄 自动存档
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-[#D4C5B0] tracking-widest">NO.0{save.id}</span>
+                      )}
+                    </div>
                     
                     {!save.empty ? (
                       <div className="pl-6 pt-4 flex items-center gap-4">
@@ -278,7 +304,8 @@ const SaveScreen: React.FC = () => {
                       </div>
                     )}
                   </motion.button>
-                ))}
+                );
+              })}
               </div>
            </div>
         </div>
