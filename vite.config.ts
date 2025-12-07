@@ -5,19 +5,16 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
-
-    // Use vite-plugin-singlefile in 'singlefile' mode for DZMM deployment
     const isSingleFileMode = mode === 'singlefile';
 
     return {
       server: {
         port: 3000,
         host: '0.0.0.0',
-        allowedHosts: ['preview.piepia.space'],
+        allowedHosts: ['preview.piepia.space', 'switch.piepia.space'],
       },
       plugins: [
         react(),
-        // Add single-file plugin only in singlefile mode
         isSingleFileMode && viteSingleFile({ useRecommendedBuildConfig: true })
       ].filter(Boolean),
       // Disable public directory to avoid copy errors
